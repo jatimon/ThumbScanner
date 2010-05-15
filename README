@@ -40,7 +40,10 @@ Requirements
 - Still growing
 
 - Perl with the following modules
-	- LWP::UserAgent;
-	- Text::Wrap;
-	- HTML::Entities;
-- ImageMagick, my system has version 5.4.7  I suspect it will still work on newer but it is untested.
+
+Image::Magick
+XML::TokeParser
+File::Basename
+File::Finder
+Math::Trig
+

@@ -34,24 +34,25 @@ sub DropShadow {
 # get actual color translation
 	$color=GetColor($color);
 
+# figure out the angle and offset
 	if ( ($true_angle >= 270) && ($true_angle <= 360) ) {
 		$angle = $true_angle-270;
-		$dir_x = -1;
+		$dir_x = 1;
 		$dir_y = 1;
 	}
 	elsif ( ($true_angle >= 180) && ($true_angle < 270) ) {
 		$angle = $true_angle-1800;
-		$dir_x = 1;
+		$dir_x = -1;
 		$dir_y = 1;
 	}
 	elsif ( ($true_angle >= 90) && ($true_angle < 180) ) {
 		$angle = $true_angle-90;
-		$dir_x = 1;
+		$dir_x = -1;
 		$dir_y = -1;
 	}
 	elsif ( ($true_angle > 0) && ($true_angle < 90) ) {
 		$angle=$true_angle;
-		$dir_x = -1;
+		$dir_x = 1;
 		$dir_y = -1;
 	}
 	elsif ($true_angle == 0) {
@@ -76,9 +77,6 @@ sub DropShadow {
 	$new_image->Read('xc:none');
 	$new_image->Composite(image=>$base_image, compose=>'src');
 
-	$new_image->Display(":0.0");
-
-	print "shadow offset X=>$delta_x, Y=>$delta_y\n";
 
 	if ($delta_x < 0) { $new_image->Roll(x=>abs($delta_x)) }
 	print $new_image->Composite(image=>$shadow_image, compose=>'dst-over',X=>$delta_x, Y=>$delta_y); 
@@ -194,6 +192,7 @@ sub Skew{
     }
 	}
 	else { # this is the trapezoid distort
+#HACK HACK Finish this
 
 
 	}
@@ -229,8 +228,6 @@ sub RoundCorners {
 	$TopLeft->Read('xc:none');
 	$TopLeft->Draw(primitive=>'circle', fill=>'white', points=>$points);
 
-
-print "------------------------------------------------------------------------------Corners = $corners\n" if $DEBUG;
 
 	if ( ($corners =~ /topleft/i ) || ( $corners =~ /All/i ) ) {
 		# make a TopLeft overlay
@@ -268,6 +265,10 @@ print "-------------------------------------------------------------------------
 
 	$base_image->Set(alpha=>'Activate');
 	$base_image->Composite(image=>$orig_image, compose=>'src-in');
+
+
+#still need to add border HACK HACK
+
 	undef $TopLeft;
 	undef $orig_image;
 	return $base_image;
@@ -312,6 +313,9 @@ sub AddImageElement {
 		$sourceData=$token->attr->{SourceData};
 		if ( $sourceData =~ /\%PATH\%/ ) {
 			# fix the source, it will come in Window Path Format, switch it to Unix
+
+#HACK much of this information will come from mediainfo
+
 			$sourceData =~ s/\%PATH\%/$Template_Path/;
 			$sourceData =~ s/\%CERTIFICATION\%/PG/;
 			$sourceData =~ s/\%STUDIOS\%/Happy Madison Productions/;
@@ -372,8 +376,8 @@ sub AddImageElement {
 				elsif ( ($token->tag =~ /AdjustOpacity/i) && ($token->is_start_tag)  ) {
 					print "Adjusting Opacity $sourceData\n" if $DEBUG;
 					# I have arrived at the conclusion that in this case Opacity is percentage of transparency.
-					#				# so let's go with that
-					my $transparency=($token->attr->{Opacity}/100);
+					#	so let's go with that
+					my $transparency=1-($token->attr->{Opacity}/100);
 					$temp->Evaluate(value=>$transparency, operator=>'Multiply', channel=>'Alpha');
 				}		
 				elsif ( ($token->tag =~ /RoundCorners/i) && ($token->is_start_tag)  ) {
@@ -399,7 +403,7 @@ sub AddImageElement {
 					$temp->Rotate(degrees=>$token->attr->{Angle} );
 				}
 				elsif ( ($token->tag =~ /DropShadow/i) && ($token->is_start_tag)  ) {
-					print "Adding Shadow to $sourceData\n"  ;
+					print "Adding Shadow to $sourceData\n" if $DEBUG ;
 					$temp=DropShadow($temp,
 						$token->attr->{Angle},
 						$token->attr->{Color},
@@ -495,8 +499,6 @@ while( defined( my $token = $parser->get_token() ) ){
 			AddImageElement($moviesheet,$token,$parser,$Template_Path,@names);
     }
 }
-
-
 
 $moviesheet->Display(':0.0');
 

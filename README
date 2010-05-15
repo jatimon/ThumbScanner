@@ -1,0 +1,46 @@
+
+Author:		John Timon
+Contact: 	john.a.timon@gmail.com
+
+What is it?
+===========
+
+This is a very preliminary version of a script that will scrape movie posters and thumbnails
+and insert some text into the scraped images to generate usable moviesheets for the 
+WDTV Live
+
+I wrote this script to automate the generation of moviesheets and thumbnails.  It can be
+put into cron and run on a daily basis.  It will find movies that do not have thumbnails 
+and pull down a thumbnail image and basic backdrop image from www.themoviedb.org using
+their supplied api.  It will further manipulate the backdrop image to ensure that it is
+the correct size and it will overlay data that it gets from themoviedb website on the image.
+
+Installation
+============
+
+Untar it and go.  The tarball should contain the following files.
+
+thumb_scraper/
+thumb_scraper/thumb_scraper.pl
+thumb_scraper/README
+thumb_scraper/OverLay.png
+thumb_scraper/LICENSE
+
+Usage
+=====
+
+cd to the directory the script is in and execute the following
+
+./thumb_scraper.pl </path/to/movie/directory>
+
+/path/to/movie/directory is the directory that contains the actual movies.
+
+Requirements
+============
+
+- OverLay.png  this is an overlay that has the transparent blocks for text.
+- Perl with the following modules
+	- LWP::UserAgent;
+	- Text::Wrap;
+	- HTML::Entities;
+- ImageMagick, my system has version 5.4.7  I suspect it will still work on newer but it is untested.

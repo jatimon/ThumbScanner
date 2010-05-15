@@ -104,6 +104,8 @@ sub GlassTable {
 
 	print "Opacity -> $opacity\n" if $DEBUG;
 
+# TODO do this without shell
+
 	my $shell_cmd="convert /tmp/source \\( -clone 0 -flip -crop ${width}x${new_height}+0+0 +repage \\) \\( -clone 0 -alpha extract -flip -crop ${width}x${new_height}+0+0 +repage -size ${width}x${new_height} gradient: +level 0x${opacity}% -compose multiply -composite \\) \\( -clone 1 -clone 2 -alpha off -compose copy_opacity -composite \\) -delete 1,2 -channel rgba -alpha on -append /tmp/glass.png";
 
 	print "CMD->$shell_cmd\n" if $DEBUG;
@@ -192,10 +194,16 @@ sub Skew{
     }
 	}
 	else { # this is the trapezoid distort
-#HACK HACK Finish this
+#TODO Finish this
 
 
 	}
+}
+
+sub PerspectiveView {
+# create a perspectiveView of the passed in image
+# initially this looks to be a trapezoid distort
+
 }
 
 
@@ -267,7 +275,7 @@ sub RoundCorners {
 	$base_image->Composite(image=>$orig_image, compose=>'src-in');
 
 
-#still need to add border HACK HACK
+#still need to add border TODO
 
 	undef $TopLeft;
 	undef $orig_image;
@@ -314,7 +322,7 @@ sub AddImageElement {
 		if ( $sourceData =~ /\%PATH\%/ ) {
 			# fix the source, it will come in Window Path Format, switch it to Unix
 
-#HACK much of this information will come from mediainfo
+#TODO much of this information will come from mediainfo
 
 			$sourceData =~ s/\%PATH\%/$Template_Path/;
 			$sourceData =~ s/\%CERTIFICATION\%/PG/;
@@ -397,6 +405,13 @@ sub AddImageElement {
 					my $level=($token->attr->{Level} * 255)/100; # imagemagick brightness is range 0-255 
 					print "Adjusting brightness level $level $sourceData\n" if $DEBUG ;
 					$temp->Modulate(brightness=>$level );
+				}
+				elsif ( ($token->tag =~ /PerspectiveView/i) && ($token->is_start_tag)  ) {
+					print "Adjusting PerspectiveView $sourceData\n" ;
+					$temp=PerspectiveView($temp,
+						$token->attr->{Angle},
+						$token->attr->{Orientation}
+					);	
 				}
 				elsif ( ($token->tag =~ /Rotate/i) && ($token->is_start_tag)  ) {
 					print "Rotating $sourceData\n" if $DEBUG ;

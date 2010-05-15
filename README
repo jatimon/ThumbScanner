@@ -6,8 +6,7 @@ What is it?
 ===========
 
 This is a very preliminary version of a script that will scrape movie posters and thumbnails
-and insert some text into the scraped images to generate usable moviesheets for the 
-WDTV Live
+and using DRIBBLER's type template files generate Moviesheets for wdtv.
 
 I wrote this script to automate the generation of moviesheets and thumbnails.  It can be
 put into cron and run on a daily basis.  It will find movies that do not have thumbnails 
@@ -20,25 +19,26 @@ Installation
 
 Untar it and go.  The tarball should contain the following files.
 
-thumb_scraper/
-thumb_scraper/thumb_scraper.pl
-thumb_scraper/README
-thumb_scraper/OverLay.png
-thumb_scraper/LICENSE
+rendering_engine/
+rendering_engine/rendering_engine.pl
+rendering_engine/README
+rendering_engine/OverLay.png
+rendering_engine/LICENSE
 
 Usage
 =====
 
 cd to the directory the script is in and execute the following
 
-./thumb_scraper.pl </path/to/movie/directory>
+./rendering_engine.pl </path/to/movie/directory>
 
 /path/to/movie/directory is the directory that contains the actual movies.
 
 Requirements
 ============
 
-- OverLay.png  this is an overlay that has the transparent blocks for text.
+- Still growing
+
 - Perl with the following modules
 	- LWP::UserAgent;
 	- Text::Wrap;

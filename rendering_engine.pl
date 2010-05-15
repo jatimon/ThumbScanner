@@ -14,38 +14,79 @@ use Math::Trig;
 
 sub DropShadow {
 # add a shadow to the image
+# the logic for this basically is to dup the image and make a shadow image.
+# then position it according to distance and angle and composite the original on top
+# yay math.
+
 	use vars qw($DEBUG);
 	my $base_image=shift;
-	my $angle=shift;
+	my $true_angle=shift;
 	my $color=shift;
 	my $distance=shift;
 	my $opacity=shift;
 	my $softness=shift;
+	my $delta_x;
+	my $delta_y;
+ 	my $dir_x;
+	my $dir_y;
+	my $angle;
 
 # get actual color translation
 	$color=GetColor($color);
 
-print "\n\t\t\tcolor->$color\n\n";
+	if ( ($true_angle >= 270) && ($true_angle <= 360) ) {
+		$angle = $true_angle-270;
+		$dir_x = -1;
+		$dir_y = 1;
+	}
+	elsif ( ($true_angle >= 180) && ($true_angle < 270) ) {
+		$angle = $true_angle-1800;
+		$dir_x = 1;
+		$dir_y = 1;
+	}
+	elsif ( ($true_angle >= 90) && ($true_angle < 180) ) {
+		$angle = $true_angle-90;
+		$dir_x = 1;
+		$dir_y = -1;
+	}
+	elsif ( ($true_angle > 0) && ($true_angle < 90) ) {
+		$angle=$true_angle;
+		$dir_x = -1;
+		$dir_y = -1;
+	}
+	elsif ($true_angle == 0) {
+		$angle = 0;
+		$dir_x = 1;
+		$dir_y = 1;
+	}
+
+# now some happy trig to get the x and y deltas.  $distance is the hypoteneuse.
+
+	$delta_x=int ( (sin(deg2rad($angle) )*$distance) * $dir_x ) ; # SIN A * distance = X
+	$delta_y=int ( (cos(deg2rad($angle) )*$distance) * $dir_y ) ; # COS A * distance = Y
 
 	my $shadow_image=Image::Magick->new();
-	my $mosaic_image=Image::Magick->new();
-	$base_image->Display(":0.0");
-	my $geometry=sprintf("%dx%d",$base_image->Get('columns', 'rows') );
 	$shadow_image=$base_image->Clone();
-	$shadow_image->Set(background=>$color);
-	$shadow_image->Shadow(geometry=>$geometry,x=>$distance,y=>$distance,opacity=>$opacity,sigma=>$softness);
 	$shadow_image->Set(background=>'none');
+	$shadow_image->Shadow(opacity=>$opacity,sigma=>$softness,X=>0, Y=>0);
 
-	push(@$shadow_image,$base_image);
-	print $mosaic_image=$shadow_image->Mosaic();
+	my ($width, $height) = $base_image->Get('columns', 'rows');
+	my $new_image=Image::Magick->new();
+	$new_image->Set( size=>sprintf("%dx%d",$width+(abs($delta_x)*2), $height+abs($delta_y)));
+	$new_image->Read('xc:none');
+	$new_image->Composite(image=>$base_image, compose=>'src');
 
-	$shadow_image->Display(":0.0");
-	$mosaic_image->Display(":0.0");
+	$new_image->Display(":0.0");
+
+	print "shadow offset X=>$delta_x, Y=>$delta_y\n";
+
+	if ($delta_x < 0) { $new_image->Roll(x=>abs($delta_x)) }
+	print $new_image->Composite(image=>$shadow_image, compose=>'dst-over',X=>$delta_x, Y=>$delta_y); 
+
 	undef $base_image;
 	undef $shadow_image;
-	return $mosaic_image;
 
-
+	return $new_image;
 }
 
 sub GlassTable {

@@ -96,29 +96,41 @@ sub GlassTable {
 	my $opacity=shift;
 	my $percent=shift;
 
-# let's try it with shell drops, I can't seem to get perlMagick to pull this off.
-
 	my ($width, $height) = $base_image->Get('columns', 'rows');
 	my $first_image=Image::Magick->new();
 	my $new_height=int($height*$percent/100);
 
-	print "Opacity -> $opacity\n" if $DEBUG;
+	my $temp_image=Image::Magick->new();
+	$temp_image=$base_image->Clone();
+	$temp_image->Crop(sprintf("%dx%d+0+0", $width, $new_height) );
+	$temp_image->Flip();
 
-# TODO do this without shell
+	my $temp_image2=Image::Magick->new();
+	$temp_image2=$base_image->Clone();
+	$temp_image2->Crop(sprintf("%dx%d+0+0", $width, $new_height) );
+	$temp_image2->Flip();
+	$temp_image2->Set(alpha=>'Extract');
 
-	my $shell_cmd="convert /tmp/source \\( -clone 0 -flip -crop ${width}x${new_height}+0+0 +repage \\) \\( -clone 0 -alpha extract -flip -crop ${width}x${new_height}+0+0 +repage -size ${width}x${new_height} gradient: +level 0x${opacity}% -compose multiply -composite \\) \\( -clone 1 -clone 2 -alpha off -compose copy_opacity -composite \\) -delete 1,2 -channel rgba -alpha on -append /tmp/glass.png";
+	my $gradient=Image::Magick->new();
+	$gradient->Set(size=>sprintf("%dx%d", $width, $new_height) );
+	$gradient->Read("gradient:grey-black");
 
-	print "CMD->$shell_cmd\n" if $DEBUG;
+	$temp_image2->Composite(image=>$gradient, compose=>'Multiply');
+	$temp_image2->Set(alpha=>'off');
+	$temp_image->Set(alpha=>'off');
 
-	$base_image->Write("/tmp/source");
+	$temp_image->Composite(image=>$temp_image2, compose=>'CopyOpacity');
+	$temp_image->Set(alpha=>'on');
 	
-	my $new_image=Image::Magick->new();
-	system($shell_cmd);
-	$new_image->Read("/tmp/glass.png");
-	unlink ("/tmp/glass.png");
+	$opacity=1-($opacity/100);
+	$temp_image->Evaluate(value=>$opacity, operator=>'Multiply', channel=>'Alpha');
 
-	return $new_image;
+	my $clipboard=Image::Magick->new();
+	push(@$clipboard, $base_image);
+	push(@$clipboard, $temp_image);
+	$base_image=$clipboard->Append();
 
+	return $base_image;
 }	
 
 sub Skew{
@@ -141,68 +153,119 @@ sub Skew{
 	my $type=shift;
 	my @skew_points;
 
+	my ($width, $height) = $orig_image->Get('columns', 'rows');
+	my $direction=$angle/abs($angle); # this give either 1 or -1
+	$angle=abs($angle);
+
+# the math is different depending on horizontal or vertical skew.
+	my $delta;
+	if ($orientation =~ /Vertical/i ) {
+		# Vertical means the width of the image is used
+		$delta=int( (sin(deg2rad($angle) )*$width) ); 
+	}
+	else {
+		# Horizontal means the height of the image is used
+		$delta=int( (sin(deg2rad($angle) )*$height) ); 
+	}
+
 	if ( $type =~ /Parallelogram/i ) {
 		# Let's deal with Parallelogram first.  
 		if ( $orientation =~ /Vertical/i ) {
 			# In the Vertical, +ve angle implies left side shifts down -ve implies right side shifts down
 			# simple Parallelogram means we simply use the angle to figure out the delta up or down
 			# of the right side of the image.  That means math TAN $angle = Delta / image width
-
-			my ($width, $height) = $orig_image->Get('columns', 'rows');
-			my $direction=$angle/abs($angle); # this give either 1 or -1
-			my $angle=abs($angle);
-			my $delta=(tan(deg2rad($angle) )*$width) * $direction; # tan A = sin A / cos A
 			if ( $direction < 0 ) {	
 				@skew_points=split(/[ ,]+/,sprintf("0,0 0,0   0,%d 0,%d   %d,0 %d,%d   %d,%d %d,%d", #top left no move
 					$height, $height, # bottom left does not move
 					$width, $width, $delta, # top right slides down
 					$width, $height, $width, $height+$delta, # bottom right slides down
-					) 
-				);
+					));
 			}
 			else {
 				@skew_points=split(/[ ,]+/,sprintf("0,0 0,%d   0,%d 0,%d   %d,0 %d,0   %d,%d %d,%d", $delta, # top left slides down
 					$height, $height+$delta, # bottom left slides down
 					$width, $width,  # top right stays the same
 					$width, $height, $width, $height # bottom right stays the same
-					) 
-				);
+					));
 			}
-			$orig_image->Distort(points=>\@skew_points, "method"=>"Perspective", 'virtual-pixel'=>'transparent');
 		}
 		else {  # its Horizontal Parallelogram
 			# In the Horizontal, +ve angle implies bottom of image shifts right -ve implies top shifts right
-      	my ($width, $height) = $orig_image->Get('columns', 'rows');
-      	my $direction=$angle/abs($angle); # this give either 1 or -1
-      	my $angle=abs($angle);
-      	my $delta=(tan(deg2rad($angle) )*$width) * $direction; # tan A = sin A / cos A
-      	if ( $direction < 0 ) {
-        	@skew_points=split(/[ ,]+/,sprintf("0,0 %d,0   0,0 0,0   %d,0 %d,0   %d,%d %d,%d", $delta, #top left slides right
-          	# bottom left does not move
-          	$width, $width+$delta, # top right slides right
-          	$width, $height, $width, $height # bottom right does not move
-          	));
-      	}
-      	else {
-        	@skew_points=split(/[ ,]+/,sprintf("0,0 0,0   0,%d %d,%d   %d,0 %d,0   %d,%d %d,%d",  # top left does not move
-          	$height, $delta, $height, # bottom left slides right
-          	# top right stays the same
-          	$width, $height, $width+$delta, $height # bottom right slides right
-          	));
-      	}
-     	$orig_image->Distort(points=>\@skew_points, "method"=>"Perspective", 'virtual-pixel'=>'transparent');
+     	if ( $direction < 0 ) {
+       	@skew_points=split(/[ ,]+/,sprintf("0,0 %d,0   0,%d 0,%d   %d,0 %d,0   %d,%d %d,%d", $delta, #top left slides right
+         	$height, $height, # bottom left does not move
+         	$width, $width+$delta, # top right slides right
+         	$width, $height, $width, $height # bottom right does not move
+         	));
+     	}
+     	else {
+       	@skew_points=split(/[ ,]+/,sprintf("0,0 0,0   0,%d %d,%d   %d,0 %d,0   %d,%d %d,%d",  # top left does not move
+         	$height, $delta, $height, # bottom left slides right
+         	$width, $width, # top right stays the same
+         	$width, $height, $width+$delta, $height # bottom right slides right
+         	));
+     	}
     }
 	}
 	else { # this is the trapezoid distort
-#TODO Finish this
-
-
+		if ( $orientation =~ /Vertical/i ) {
+		# In the Vertical, -ve angle implies right side shrinks +ve angle implies left side shrinks
+		# Trapezoid means we use the angle to figure out the delta up or down and apply that delta both corners of the image
+			if ( $direction < 0 ) {	
+				$orig_image->Resize(height=>($height+$delta));
+				@skew_points=split(/[ ,]+/,sprintf("0,0 0,0   0,%d 0,%d   %d,0 %d,%d   %d,%d %d,%d", # top left does not change
+					$height, $height, # bottom left does not move
+					$width, $width, $delta, # top right slides down
+					$width, $height, $width, $height-$delta, # bottom right slides up
+					));
+			}
+			else {
+				$orig_image->Resize(height=>($height+$delta));
+				@skew_points=split(/[ ,]+/,sprintf("0,0 0,%d   0,%d 0,%d   %d,0 %d,0   %d,%d %d,%d", $delta, # top left slides down
+					$height, $height-$delta, # bottom left slides up
+					$width, $width,  # top right stays the same
+					$width, $height, $width, $height # bottom right stays the same
+					));
+			}
+		}
+		else {  # its Horizontal Trapezoid
+			# In the Horizontal, +ve angle implies bottom of image shrinks -ve implies top shrinks
+     	if ( $direction < 0 ) {
+       	@skew_points=split(/[ ,]+/,sprintf("0,0 %d,0   0,%d 0,%d   %d,0 %d,0   %d,%d %d,%d", $delta, #top left slides right
+         	$height, $height, # bottom left stays the same
+         	$width, $width-$delta, # top right slides left
+         	$width, $height, $width, $height # bottom right does not change
+         	));
+     	}
+     	else {
+       	@skew_points=split(/[ ,]+/,sprintf("0,0 0,0   0,%d %d,%d   %d,0 %d,0   %d,%d %d,%d",  # top left does not move
+         	$height, $delta, $height, # bottom left slides right
+         	$width, $width, # top right stays the same
+         	$width, $height, $width-$delta, $height # bottom right slides left
+         	));
+     	}
+		}
 	}
+	$orig_image->Distort(points=>\@skew_points, "method"=>"Perspective", 'virtual-pixel'=>'transparent');
+	return $orig_image;
 }
 
 sub PerspectiveView {
 # create a perspectiveView of the passed in image
 # initially this looks to be a trapezoid distort
+	my $orig_image=shift;
+	my $angle=shift;
+	my $orientation=shift;
+
+# basically we call Skew with a type of Trapezoid and Orientation of Vertical.  The -ve angle is left to right +ve right to left
+	if ($orientation =~ /righttoleft/i) {
+		$angle=abs($angle)*(-1);
+	}
+	else {
+		$angle=abs($angle);
+	}
+		print "angle $angle\n";
+	return Skew($orig_image, $angle, "True", "Vertical", "Trapezoid");
 
 }
 
@@ -228,14 +291,13 @@ sub RoundCorners {
 	$base_image->Composite(image=>$white, compose=>'SrcIn');
 	$base_image->Set(alpha=>'Deactivate');
 
-#$roundness=$roundness*2;
-	$roundness=$roundness*3;
+	$roundness=$roundness*2;
+
 	# make a TopLeft Corner as a base and we will flip and flop as needed.
 	my $points=sprintf("%d,%d %d,0",$roundness,$roundness,$roundness);
 	$TopLeft->Set(size=>sprintf("%dx%d",$roundness,$roundness));
 	$TopLeft->Read('xc:none');
 	$TopLeft->Draw(primitive=>'circle', fill=>'white', points=>$points);
-
 
 	if ( ($corners =~ /topleft/i ) || ( $corners =~ /All/i ) ) {
 		# make a TopLeft overlay
@@ -344,19 +406,19 @@ sub AddImageElement {
 			$temp->Read($sourceData) if defined($sourceData);
 		} 
 		elsif ( $sourceData =~ /\%BACKGROUND\%/ ) {
-			$sourceData='./Movies/Avatar.avi_sheet.jpg';
-			$temp->Read('./Movies/Avatar.avi_sheet.jpg');
+			$sourceData='./Movies/300.avi_sheet.jpg';
+			$temp->Read('./Movies/300.avi_sheet.jpg');
 		}	
 		elsif ( $sourceData =~ /\%COVER\%/ ) {
-			$sourceData='./Movies/Avatar.jpg';
-			$temp->Read('./Movies/Avatar.jpg');
+			$sourceData='./Movies/300.jpg';
+			$temp->Read('./Movies/300.jpg');
 		}
 		else { die "what do I do with $sourceData\n"; }
 
 		$temp->Resize(width=>$token->attr->{Width}, height=>$token->attr->{Height});
 	}
 
-	# because we are stream parsing the xml data we need to remember when on the canvas to composite this image
+	# because we are stream parsing the xml data we need to remember where on the canvas to composite this image
 	my $composite_x=$token->attr->{X};
 	my $composite_y=$token->attr->{Y};
 	while( defined( $token = $parser->get_token() ) ){
@@ -429,8 +491,6 @@ sub AddImageElement {
 				}
 				elsif ( ($token->tag =~ /Skew/i) && ($token->is_start_tag)  ) {
 					print "Skewing $sourceData\n" if $DEBUG ;
-					printf ("options angle %d\ncontrain %s\norient %s\ntype %s\n", $token->attr->{Angle},$token->attr->{ConstrainProportions}, $token->attr->{Orientation},$token->attr->{Type});
-
 					$temp=Skew($temp,
 					$token->attr->{Angle},
 					$token->attr->{ConstrainProportions},
@@ -506,7 +566,7 @@ while( defined( my $token = $parser->get_token() ) ){
 
 		my $geometry=sprintf("%dx%d",$token->attr->{Width},$token->attr->{Height});
 		$moviesheet=Image::Magick->new(size=>$geometry); # invoke new image
-		$moviesheet->ReadImage('xc:white'); # make a white canvas
+		$moviesheet->ReadImage('xc:black'); # make a white canvas
     }
 
     if ( ($token->tag eq "ImageElement") && ($token->is_start_tag)  ) {

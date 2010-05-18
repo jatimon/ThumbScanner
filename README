@@ -22,7 +22,6 @@ Untar it and go.  The tarball should contain the following files.
 rendering_engine/
 rendering_engine/rendering_engine.pl
 rendering_engine/README
-rendering_engine/OverLay.png
 rendering_engine/LICENSE
 
 Usage
@@ -47,3 +46,4 @@ File::Basename
 File::Finder
 Math::Trig
 
+- Template files.  It is built against Dribblers Templates.

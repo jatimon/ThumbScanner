@@ -12,6 +12,12 @@ use File::Basename;
 use File::Finder;
 use Math::Trig;
 
+#---------------------------------------------------------------------------------------------
+#
+# Image Element Functions
+#
+#---------------------------------------------------------------------------------------------
+
 sub DropShadow {
 # add a shadow to the image
 # the logic for this basically is to dup the image and make a shadow image.
@@ -79,11 +85,10 @@ sub DropShadow {
 
 
 	if ($delta_x < 0) { $new_image->Roll(x=>abs($delta_x)) }
-	print $new_image->Composite(image=>$shadow_image, compose=>'dst-over',X=>$delta_x, Y=>$delta_y); 
+	$new_image->Composite(image=>$shadow_image, compose=>'dst-over',X=>$delta_x, Y=>$delta_y); 
 
 	undef $base_image;
 	undef $shadow_image;
-
 	return $new_image;
 }
 
@@ -144,7 +149,7 @@ sub Skew{
 #
 # of course ImageMagick is more generic.  We can pull off an image transform by simply specifying 
 # 4 starting cordinates and their corresponding destination coordinates
-#
+
 	use vars qw($DEBUG);
 	my $orig_image=shift;
 	my $angle=shift;
@@ -157,7 +162,7 @@ sub Skew{
 	my $direction=$angle/abs($angle); # this give either 1 or -1
 	$angle=abs($angle);
 
-# the math is different depending on horizontal or vertical skew.
+	# the math is different depending on horizontal or vertical skew.
 	my $delta;
 	if ($orientation =~ /Vertical/i ) {
 		# Vertical means the width of the image is used
@@ -246,7 +251,9 @@ sub Skew{
      	}
 		}
 	}
+	$orig_image->Set(alpha=>'off');
 	$orig_image->Distort(points=>\@skew_points, "method"=>"Perspective", 'virtual-pixel'=>'transparent');
+	$orig_image->Set(alpha=>'on');
 	return $orig_image;
 }
 
@@ -257,16 +264,14 @@ sub PerspectiveView {
 	my $angle=shift;
 	my $orientation=shift;
 
-# basically we call Skew with a type of Trapezoid and Orientation of Vertical.  The -ve angle is left to right +ve right to left
+	# basically we call Skew with a type of Trapezoid and Orientation of Vertical.  The -ve angle is left to right +ve right to left
 	if ($orientation =~ /righttoleft/i) {
-		$angle=abs($angle)*(-1);
+		$angle=(abs($angle)/2)*(-1);
 	}
 	else {
-		$angle=abs($angle);
+		$angle=abs($angle)/2;
 	}
-		print "angle $angle\n";
 	return Skew($orig_image, $angle, "True", "Vertical", "Trapezoid");
-
 }
 
 
@@ -290,8 +295,6 @@ sub RoundCorners {
 	$white->Read("xc:white");
 	$base_image->Composite(image=>$white, compose=>'SrcIn');
 	$base_image->Set(alpha=>'Deactivate');
-
-	$roundness=$roundness*2;
 
 	# make a TopLeft Corner as a base and we will flip and flop as needed.
 	my $points=sprintf("%d,%d %d,0",$roundness,$roundness,$roundness);
@@ -336,9 +339,20 @@ sub RoundCorners {
 	$base_image->Set(alpha=>'Activate');
 	$base_image->Composite(image=>$orig_image, compose=>'src-in');
 
-
-#still need to add border TODO
-
+	if ( $border_width > 0 ) { 
+	# this is what I am thinking here.  clone the image. resize it by borderwidth fill it with the bordercolor
+	# lay the original image inside of the filled one.  The should give a border....
+		my $border_image=Image::Magick->new(magick=>'png');
+		$border_image=$base_image->Clone();
+		($width, $height) = $base_image->Get('columns', 'rows');
+		$border_color=GetColor($border_color);
+		$border_image->Resize(width=>$width+(2*$border_width),height=>$height+(2*$border_width));
+		$border_image->Set(background=>$border_color);
+		$border_image->Shadow(opacity=>100,sigma=>0,X=>0, Y=>0);
+		$border_image->Composite(image=>$base_image,compose=>'src-over',x=>$border_width,y=>$border_width);
+		$base_image=$border_image;
+		undef $border_image;
+	}
 	undef $TopLeft;
 	undef $orig_image;
 	return $base_image;
@@ -406,14 +420,16 @@ sub AddImageElement {
 			$temp->Read($sourceData) if defined($sourceData);
 		} 
 		elsif ( $sourceData =~ /\%BACKGROUND\%/ ) {
-			$sourceData='./Movies/300.avi_sheet.jpg';
-			$temp->Read('./Movies/300.avi_sheet.jpg');
+			$sourceData='./Movies/enchanted-original.jpg';
+#$temp->Read('./Movies/enchanted-original.jpg');
+			$temp->Read('http://i1.themoviedb.org/backdrops/3fe/4bc91a95017a3c57fe00a3fe/enchanted-original.jpg');
 		}	
 		elsif ( $sourceData =~ /\%COVER\%/ ) {
-			$sourceData='./Movies/300.jpg';
-			$temp->Read('./Movies/300.jpg');
+			$sourceData='./Movies/enchanted-cover.jpg';
+#$temp->Read('./Movies/enchanted-cover.jpg');
+			$temp->Read('http://i1.themoviedb.org/posters/416/4bc91a9b017a3c57fe00a416/enchanted-cover.jpg');
 		}
-		else { die "what do I do with $sourceData\n"; }
+		else { print "what do I do with $sourceData\n"; next; }
 
 		$temp->Resize(width=>$token->attr->{Width}, height=>$token->attr->{Height});
 	}
@@ -444,14 +460,13 @@ sub AddImageElement {
 						$token->attr->{ReflectionPercentage});
 				}
 				elsif ( ($token->tag =~ /AdjustOpacity/i) && ($token->is_start_tag)  ) {
-					print "Adjusting Opacity $sourceData\n" if $DEBUG;
-					# I have arrived at the conclusion that in this case Opacity is percentage of transparency.
-					#	so let's go with that
-					my $transparency=1-($token->attr->{Opacity}/100);
-					$temp->Evaluate(value=>$transparency, operator=>'Multiply', channel=>'Alpha');
+					my $opacity_percent=($token->attr->{Opacity}/100);
+					print "Adjusting Opacity $sourceData by $opacity_percent \n" if $DEBUG ;
+					# in ImageDraw, opacity ranges from 0 (fully transparent) to 100 (fully Opaque)
+					$temp->Evaluate(value=>$opacity_percent, operator=>'Multiply', channel=>'All');
 				}		
 				elsif ( ($token->tag =~ /RoundCorners/i) && ($token->is_start_tag)  ) {
-					print "Rounding Corners $sourceData\n" if $DEBUG ;
+					print "Rounding Corners $sourceData\n" if $DEBUG  ;
        		$temp=RoundCorners($temp,
        			$token->attr->{BorderColor},
        			$token->attr->{BorderWidth},
@@ -469,15 +484,18 @@ sub AddImageElement {
 					$temp->Modulate(brightness=>$level );
 				}
 				elsif ( ($token->tag =~ /PerspectiveView/i) && ($token->is_start_tag)  ) {
-					print "Adjusting PerspectiveView $sourceData\n" ;
+					print "Adjusting PerspectiveView $sourceData\n" if $DEBUG;
 					$temp=PerspectiveView($temp,
 						$token->attr->{Angle},
 						$token->attr->{Orientation}
 					);	
 				}
 				elsif ( ($token->tag =~ /Rotate/i) && ($token->is_start_tag)  ) {
-					print "Rotating $sourceData\n" if $DEBUG ;
-					$temp->Rotate(degrees=>$token->attr->{Angle} );
+					my $degrees=$token->attr->{Angle} * (-1);
+					print "Rotating $sourceData by $degrees degrees\n" if $DEBUG ;
+					my ($width, $height) = $temp->Get('columns', 'rows');
+       		my @points=split(/[ ,]+/,sprintf("0,%d 100 %d",$height,$degrees));
+					print $temp->Distort(method=>'ScaleRotateTranslate','best-fit'=>'False','virtual-pixel'=>'transparent',points=>\@points);
 				}
 				elsif ( ($token->tag =~ /DropShadow/i) && ($token->is_start_tag)  ) {
 					print "Adding Shadow to $sourceData\n" if $DEBUG ;
@@ -515,10 +533,116 @@ sub AddImageElement {
 			}
 		}
 	}
-			$base_image->Composite(image=>$temp, compose=>'src-atop', geometry=>$geometry, x=>$composite_x, y=>$composite_y);
-			undef $temp;
+	$base_image->Composite(image=>$temp, compose=>'src-atop', geometry=>$geometry, x=>$composite_x, y=>$composite_y);
+	undef $temp;
 }
 
+
+#---------------------------------------------------------------------------------------------
+#
+# END Image Element Functions
+#
+#---------------------------------------------------------------------------------------------
+
+#---------------------------------------------------------------------------------------------
+#
+# Text Element Functions
+#
+#---------------------------------------------------------------------------------------------
+
+sub ParseFont {
+# take a Font string and return a hash
+# Font Styles
+# ImageDraw Font objects can be set so they look bold, italic, underline, and strikeout. 
+# Font Size and Unit
+# The font size value will depend on the font unit which can be set to Point, Inch, Millimeter, or Pixel. 
+
+	use vars qw($DEBUG);
+	my $font=shift;
+
+	# is this a basic font line or one with bold/italic/underline/strikeout
+	my @font_ary=split(/,/,$font);
+
+	my %font_hash=(
+			'Family'		=>	"$font_ary[0]",
+			'Size'			=>	$font_ary[1],
+			'Unit'			=>	scalar(@font_ary) > 5 ?	$font_ary[6] : $font_ary[2],
+	);
+
+	if (scalar(@font_ary) > 5) {
+		# build a string of which ever text options are specified
+		my @options;
+		push (@options, 'Italic') 		if $font_ary[3] =~ /True/i;
+
+		$font_hash{Options}=join(',',@options);
+		$font_hash{Family}.="-Bold" if $font_ary[2] =~ /True/i;
+	}
+
+	return \%font_hash;
+}
+
+sub GetGravity {
+# ImageDraw alignment options, The text can be left-aligned, center-aligned, or right-aligned in both vertical and horizontal directions. 
+	my $alignment=shift;
+
+	my %alignment_hash = (
+			'TopLeft'				=>	'NorthWest',
+			'TopCenter'			=>	'North',
+			'TopRight'			=>	'NorthEast',
+			'Left'					=>	'West',
+			'Right'					=>	'East',
+			'BottomLeft'		=>	'SouthWest',
+			'BottomMiddle'	=>	'South',
+			'BottomRight'		=>	'SouthEast',
+			'MiddleCenter'	=>	'Center',
+		);
+
+	return $alignment_hash{$alignment};
+}
+	
+
+sub AddTextElement {
+# Two basic types of text elements;
+# 1) those with effect i.e. Action
+# 2) those without
+#
+	use vars qw($DEBUG);
+
+	my $base_image=shift;
+	my $token=shift;
+	my $parser=shift;
+	my $Template_Path=shift;
+	my @Files=@_;
+	my $sourceData;
+	my $geometry=sprintf("%dx%d",$token->attr->{Width},$token->attr->{Height});
+	my $temp=Image::Magick->new(magick=>'png');
+	$temp->Set( size=>sprintf("%dx%d",$token->attr->{Width},$token->attr->{Height}) );
+	$temp->Read('xc:none');
+
+	# because we are stream parsing the xml data we need to remember where on the canvas to composite this image
+	my $composite_x=$token->attr->{X};
+	my $composite_y=$token->attr->{Y};
+
+	# create the text element image contents
+	my $forecolor=GetColor($token->attr->{ForeColor});
+	my $strokecolor=GetColor($token->attr->{StrokeColor});
+	my $font_hash=ParseFont($token->attr->{Font});
+	my $gravity=GetGravity($token->attr->{TextAlignment} );
+
+	$temp->Annotate(text=>$token->attr->{Text}, fill=>$forecolor, stroke=>$strokecolor, font=>$font_hash->{Family},
+					pointsize=>$font_hash->{Size} ,antialias=>'True', gravity=>$gravity);
+
+	while( defined( $token = $parser->get_token() ) ){
+		if ( ($token->is_tag) && ($token->is_end_tag) && ($token->tag =~ /TextElement/) ) {
+			 last;
+		}
+		elsif ($token->tag =~ /Actions/ ) {
+			# do some actions
+		}
+	}
+	$base_image->Composite(image=>$temp, compose=>'src-atop', geometry=>$geometry, x=>$composite_x, y=>$composite_y);
+	undef $temp;
+}
 
 sub Usage {
 # there must be exactly two command line arguments
@@ -544,16 +668,11 @@ $Template_Path =~ s/\/$//;
 # we need to make sure we can load the file case insensitively.
 my @names = File::Finder->in("$Template_Path/..");
 
+# generic debugging information.  probably replaced later with command line argument
 our $DEBUG=0;
-#
-# read in an parse a Template.xml file.  
-# 
-# the final goal is to be able to use thumbgen templates to make moviesheets
-#
 
 my $parser = XML::TokeParser->new( $template );
 my $moviesheet;
-
 
 while( defined( my $token = $parser->get_token() ) ){
     if ( ($token->tag =~ /ImageDrawTemplate/ ) && ($token->is_start_tag) ) {
@@ -563,15 +682,21 @@ while( defined( my $token = $parser->get_token() ) ){
     if ( ($token->tag eq "Canvas") && ($token->is_start_tag) ) {
       printf ("create a canvas of width=%d and height=%d\n",$token->attr->{Width},$token->attr->{Height}) if $DEBUG;
 		# Create a Canvas
-
 		my $geometry=sprintf("%dx%d",$token->attr->{Width},$token->attr->{Height});
 		$moviesheet=Image::Magick->new(size=>$geometry); # invoke new image
 		$moviesheet->ReadImage('xc:black'); # make a white canvas
     }
 
+		# add an image element to the canvas
     if ( ($token->tag eq "ImageElement") && ($token->is_start_tag)  ) {
       print "ImageELement\n" if $DEBUG;
 			AddImageElement($moviesheet,$token,$parser,$Template_Path,@names);
+    }
+
+		# add a text element to the canvas
+    if ( ($token->tag eq "TextElement") && ($token->is_start_tag)  ) {
+      print "TextELement\n" ;
+			AddTextElement($moviesheet,$token,$parser,$Template_Path,@names);
     }
 }
 

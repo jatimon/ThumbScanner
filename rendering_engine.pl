@@ -11,6 +11,15 @@ use Data::Dumper;
 use File::Basename;
 use File::Finder;
 use Math::Trig;
+use XML::Bare;
+use LWP::UserAgent;
+
+#use Text::Wrap;
+#use HTML::Entities;
+#
+#$Text::Wrap::initial_tab = "\t";    # Tab before first line
+#$Text::Wrap::subsequent_tab = "";   # All other lines flush left
+#$Text::Wrap::columns = 40;
 
 #---------------------------------------------------------------------------------------------
 #
@@ -379,6 +388,7 @@ sub AddImageElement {
 # all of the composite information will be in the composite_data variable
 	use vars qw($DEBUG);
 
+	my $movie_xml=shift;
 	my $base_image=shift;
 	my $token=shift;
 	my $parser=shift;
@@ -395,43 +405,63 @@ sub AddImageElement {
 		# 2) variable reference to downloaded content
 
 		$sourceData=$token->attr->{SourceData};
+		print "sourceData -----> $sourceData\n";
 		if ( $sourceData =~ /\%PATH\%/ ) {
 			# fix the source, it will come in Window Path Format, switch it to Unix
 
 #TODO much of this information will come from mediainfo
 
 			$sourceData =~ s/\%PATH\%/$Template_Path/;
-			$sourceData =~ s/\%CERTIFICATION\%/PG/;
-			$sourceData =~ s/\%STUDIOS\%/Happy Madison Productions/;
-			$sourceData =~ s/\%SUBTITLES1\%/wales/;
-			$sourceData =~ s/\%EXTERNALSUBTITLES1\%/wales/;
-			$sourceData =~ s/\%SUBTITLES2\%/wales/;
-			$sourceData =~ s/\%EXTERNALSUBTITLES2\%/wales/;
-			$sourceData =~ s/\%SUBTITLES3\%/wales/;
-			$sourceData =~ s/\%EXTERNALSUBTITLES3\%/wales/;
-			$sourceData =~ s/\%SUBTITLES4\%/wales/;
-			$sourceData =~ s/\%EXTERNALSUBTITLES4\%/wales/;
-			$sourceData =~ s/\%SUBTITLES5\%/wales/;
-			$sourceData =~ s/\%EXTERNALSUBTITLES5\%/wales/;
 			$sourceData =~ tr |\\|/|;
+
+			next if ($sourceData =~ /SUBTITLES/ );
+			next if ($sourceData =~ /CERTIFICATION/ );
+			next if ($sourceData =~ /STUDIOS/ );
 
 			my @newSource = grep {/$sourceData/i} @Files;
 			$sourceData=$newSource[0];
 			$temp->Read($sourceData) if defined($sourceData);
 		} 
 		elsif ( $sourceData =~ /\%BACKGROUND\%/ ) {
-			$sourceData='./Movies/enchanted-original.jpg';
-#$temp->Read('./Movies/enchanted-original.jpg');
-			$temp->Read('http://i1.themoviedb.org/backdrops/3fe/4bc91a95017a3c57fe00a3fe/enchanted-original.jpg');
+			my $image_url;
+			my @backdrops;
+			$sourceData="BACKGROUND";
+			# grab the backdrop image from themoviedb
+			foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
+  			push ( @backdrops, $_->{url}->{value}) if ( ($_->{size}->{value} =~ /original/i) && ($_->{type}->{value} =~ /backdrop/i) );
+			}
+			if (scalar (@backdrops) > 1) {
+				# pick one randomly
+				$image_url=$backdrops[int(rand(scalar(@backdrops)))];
+			}
+			else {
+				$image_url=$backdrops[0];
+			}
+			$temp->Read($image_url);
 		}	
 		elsif ( $sourceData =~ /\%COVER\%/ ) {
-			$sourceData='./Movies/enchanted-cover.jpg';
-#$temp->Read('./Movies/enchanted-cover.jpg');
-			$temp->Read('http://i1.themoviedb.org/posters/416/4bc91a9b017a3c57fe00a416/enchanted-cover.jpg');
+			$sourceData="COVER";
+			my $image_url;
+			my @covers;
+			# grab the cover image from themoviedb
+			foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
+				push ( @covers, $_->{url}->{value}) if ( ($_->{size}->{value} =~ /mid/i) && ($_->{type}->{value} =~ /poster/i) );
+			}
+			if (scalar (@covers) > 1) {
+				# pick one randomly
+				$image_url=$covers[int(rand(scalar(@covers)))];
+			} 
+			else {
+				$image_url=$covers[0];
+			} 
+			print "image url $image_url\n" ;
+			$temp->Read($image_url);
 		}
-		else { print "what do I do with $sourceData\n"; next; }
+		else {
+			print "what do I do with $sourceData\n"; 
+		}
+		$temp->Resize(width=>$token->attr->{Width}, height=>$token->attr->{Height}) ;
 
-		$temp->Resize(width=>$token->attr->{Width}, height=>$token->attr->{Height});
 	}
 
 	# because we are stream parsing the xml data we need to remember where on the canvas to composite this image
@@ -537,13 +567,6 @@ sub AddImageElement {
 	undef $temp;
 }
 
-
-#---------------------------------------------------------------------------------------------
-#
-# END Image Element Functions
-#
-#---------------------------------------------------------------------------------------------
-
 #---------------------------------------------------------------------------------------------
 #
 # Text Element Functions
@@ -608,6 +631,7 @@ sub AddTextElement {
 #
 	use vars qw($DEBUG);
 
+	my $movie_xml=shift;
 	my $base_image=shift;
 	my $token=shift;
 	my $parser=shift;
@@ -644,6 +668,150 @@ sub AddTextElement {
 	undef $temp;
 }
 
+#---------------------------------------------------------------------------------------------
+#
+# Movie Sheet Generation
+#
+#---------------------------------------------------------------------------------------------
+
+sub generate_moviesheet {
+# takes as input a movie data hash, a template file and the filenamed array
+	my $movie_xml=shift;
+	my $template=shift;
+	my $Template_Path=shift;
+	my @Files=@_;
+
+	my $parser = XML::TokeParser->new( $template );
+	my $moviesheet;
+
+	while( defined( my $token = $parser->get_token() ) ){
+    if ( ($token->tag =~ /ImageDrawTemplate/ ) && ($token->is_start_tag) ) {
+     	print "---> imagedrawtemplate <---\n";
+    }
+
+    if ( ($token->tag eq "Canvas") && ($token->is_start_tag) ) {
+     	printf ("create a canvas of width=%d and height=%d\n",$token->attr->{Width},$token->attr->{Height}) if $DEBUG;
+		# Create a Canvas
+		my $geometry=sprintf("%dx%d",$token->attr->{Width},$token->attr->{Height});
+		$moviesheet=Image::Magick->new(size=>$geometry); # invoke new image
+		$moviesheet->ReadImage('xc:black'); # make a white canvas
+    }
+
+		# add an image element to the canvas
+    if ( ($token->tag eq "ImageElement") && ($token->is_start_tag)  ) {
+      print "ImageELement\n" if $DEBUG;
+			AddImageElement($movie_xml,$moviesheet,$token,$parser,$Template_Path,@Files);
+    }
+
+		# add a text element to the canvas
+    if ( ($token->tag eq "TextElement") && ($token->is_start_tag)  ) {
+			AddTextElement($movie_xml,$moviesheet,$token,$parser,$Template_Path,@Files);
+    }
+	}
+	$moviesheet->Write("$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{name}->{value}.jpg");
+}
+
+#---------------------------------------------------------------------------------------------
+#
+# Movie Info and MediaInfo Function
+#
+#---------------------------------------------------------------------------------------------
+
+
+sub trim {
+	my $string = shift;
+	$string =~ s/^\s+//;
+	$string =~ s/\s+$//;
+	return $string;
+}
+
+sub clean_name {
+# shamelessly stolen from myth code for scraping movie meta data
+# Give the filename a more meaningful  name
+	my $movie_name = shift;
+
+	$movie_name =~ s/\.\w+$//; # the extension
+	$movie_name =~ s/^\d+(\.|_|-|\s)//; # track number?
+	$movie_name =~ s/\[\d{4}\](.*)$//; # sometimes videos include "[2008]"
+	$movie_name =~ s/[\[,\(,\{]\d{4}[\],\),\}]//; #remove year
+	$movie_name =~ s/_\d{4}.*$//; #remove year and everything after in
+	$movie_name =~ s/\.\d{4}.*$//; #remove year and everything after in
+	$movie_name =~ tr/[\.\_\-\[\]!\(\)\:]/ /; # turn delimeter characters into spaces
+
+	$movie_name =~ s/\s+/ /g; # convert n-whitespaces into a single whitespace
+	$movie_name =~ tr/[A-Z]/[a-z]/; # change movie name to lower case
+	$movie_name =~ s/\s(xvid|divx|h264|x264|ac3|mpg)(.*)$//g; # remove codecs - and everything after
+	$movie_name =~ s/\s(internal|repack|proper|fixed|read nfo|readnfo|unrated|widescreen)(.*)$//g;# remove notes - and everything after
+	$movie_name =~ s/\s(dvdrip|screener|hdtv|dsrip|dsr|dvd|bluray|blueray|720p|hr|workprint)(.*)$//g;# remove sources - and every thing after
+	$movie_name =~ s/\s(klaxxon|axxo)//g;# remove distributors
+
+	# Part removal enhancement by Laurie Odgers
+	# Remove anything after "part", "cd", "ep" or "webisode"
+	$movie_name =~ s/((part|cd|ep|webisode)[\s]+\d+)(.*)$//g;	  # Numbering, matches: part 1, cd.1, ep1
+	# Roman Numerals, matches: part I, cd.V, webisodeX
+	$movie_name =~ s/((part|cd|ep|webisode)[\s]+[i,v,x]+[\s])(.*)$//g;      # Matches "moviename - part i [DivX]"
+	$movie_name =~ s/((part|cd|ep|webisode)[\s]+[i,v,x]+$)(.*)$//g; # Matches "moviename - part i"
+
+	$movie_name = trim($movie_name);
+
+	return $movie_name;
+}
+
+sub GetTmdbID {
+# passed in the file name, clean it and return the tmdb_id
+	my $file_name = shift;
+	my $tmdb_id;
+
+	if ($file_name =~ /tmdb_id=(.*)\..*$/) {
+		return ($1);
+	}
+
+	# the file name does not contain the tmdb_id.  so let's query tmdb's api and get the filename
+	# N.B. here would be a possible injection point to allow the user to select a specific movie should
+	# the results from tmdb's api have multiple hits.
+	my $movie_name=clean_name($file_name);
+	my $ua = LWP::UserAgent->new;
+	$ua->timeout(10);
+	$ua->env_proxy;
+
+	my $response = $ua->get("http://api.themoviedb.org/2.1/Movie.search/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$movie_name");
+	my $xml_ob = new XML::Bare(text => $response->decoded_content );
+	my $xml_root=$xml_ob->simple();
+
+	if ( $xml_root->{OpenSearchDescription}->{'opensearch:totalResults'} > 1 ) {
+		print "WARNING: Multiply movie entries for this title\n";
+		$tmdb_id=$xml_root->{OpenSearchDescription}->{movies}->{movie}->[0]->{id};
+	}
+	else {
+		$tmdb_id=$xml_root->{OpenSearchDescription}->{movies}->{movie}->{id};
+	}
+
+	return $tmdb_id;
+}	
+
+sub GetMediaDetails {
+# grab the xml data for this specific movie from themoviedb.org
+# store it in a xml object so we can pull data from it as we build the moviesheet
+	my $tmdb_id=shift;
+
+	my $ua = LWP::UserAgent->new;
+	$ua->timeout(10);
+	$ua->env_proxy;
+
+	my $response = $ua->get("http://api.themoviedb.org/2.1/Movie.getInfo/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$tmdb_id");
+	my $xml_ob = new XML::Bare(text => $response->decoded_content );
+	my $xml_root=$xml_ob->parse();
+
+	return $xml_root;
+}
+
+
+#---------------------------------------------------------------------------------------------
+#
+# Main
+#
+#---------------------------------------------------------------------------------------------
+
 sub Usage {
 # there must be exactly two command line arguments
 #
@@ -671,35 +839,23 @@ my @names = File::Finder->in("$Template_Path/..");
 # generic debugging information.  probably replaced later with command line argument
 our $DEBUG=0;
 
-my $parser = XML::TokeParser->new( $template );
-my $moviesheet;
+opendir DIR, $movie_directory || die "Unable to open Movie Directory";
+	my @movies=grep{ /^\w+/ && !/^\.+/ && !/jpg/ && -f "$movie_directory/$_" } readdir(DIR);
+closedir DIR;
 
-while( defined( my $token = $parser->get_token() ) ){
-    if ( ($token->tag =~ /ImageDrawTemplate/ ) && ($token->is_start_tag) ) {
-      print "---> imagedrawtemplate <---\n";
-    }
+foreach (@movies) {
+	chomp;
+	my $actual_file_name = $_;
+	my $tmdb_id=GetTmdbID($actual_file_name);
+	$actual_file_name =~ s/\.\w+$//; # remove the trailing suffix
 
-    if ( ($token->tag eq "Canvas") && ($token->is_start_tag) ) {
-      printf ("create a canvas of width=%d and height=%d\n",$token->attr->{Width},$token->attr->{Height}) if $DEBUG;
-		# Create a Canvas
-		my $geometry=sprintf("%dx%d",$token->attr->{Width},$token->attr->{Height});
-		$moviesheet=Image::Magick->new(size=>$geometry); # invoke new image
-		$moviesheet->ReadImage('xc:black'); # make a white canvas
-    }
-
-		# add an image element to the canvas
-    if ( ($token->tag eq "ImageElement") && ($token->is_start_tag)  ) {
-      print "ImageELement\n" if $DEBUG;
-			AddImageElement($moviesheet,$token,$parser,$Template_Path,@names);
-    }
-
-		# add a text element to the canvas
-    if ( ($token->tag eq "TextElement") && ($token->is_start_tag)  ) {
-      print "TextELement\n" ;
-			AddTextElement($moviesheet,$token,$parser,$Template_Path,@names);
-    }
+	if ( !( -e "$movie_directory/$actual_file_name.jpg") && (defined($tmdb_id)) ) {
+		# get more detailed information using the Movie.getInfo call
+		my $xml_root=GetMediaDetails($tmdb_id);
+		# start the movie sheet generation
+ 		generate_moviesheet($xml_root, $template, $Template_Path, @names);
+	}
+	else {
+		print "unable to find movie data for $_\n";
+	}
 }
-
-$moviesheet->Display(':0.0');
-
-

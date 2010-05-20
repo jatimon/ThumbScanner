@@ -389,6 +389,7 @@ sub AddImageElement {
 	use vars qw($DEBUG);
 
 	my $movie_xml=shift;
+	my $mediainfo=shift;
 	my $base_image=shift;
 	my $token=shift;
 	my $parser=shift;
@@ -398,71 +399,32 @@ sub AddImageElement {
 	my $geometry=sprintf("%dx%d",$token->attr->{Width},$token->attr->{Height});
 	my $temp=Image::Magick->new(geometry=>$geometry);
 		
+		$sourceData=$token->attr->{SourceData};
 	if ( $token->attr->{Source} eq "File" ) {
 
 		# File Sources are two types;
 		#	1) path to file
 		# 2) variable reference to downloaded content
 
-		$sourceData=$token->attr->{SourceData};
-		print "sourceData -----> $sourceData\n";
+
 		if ( $sourceData =~ /\%PATH\%/ ) {
 			# fix the source, it will come in Window Path Format, switch it to Unix
-
-#TODO much of this information will come from mediainfo
-
 			$sourceData =~ s/\%PATH\%/$Template_Path/;
 			$sourceData =~ tr |\\|/|;
-
-			next if ($sourceData =~ /SUBTITLES/ );
-			next if ($sourceData =~ /CERTIFICATION/ );
-			next if ($sourceData =~ /STUDIOS/ );
-
-			my @newSource = grep {/$sourceData/i} @Files;
-			$sourceData=$newSource[0];
-			$temp->Read($sourceData) if defined($sourceData);
-		} 
-		elsif ( $sourceData =~ /\%BACKGROUND\%/ ) {
-			my $image_url;
-			my @backdrops;
-			$sourceData="BACKGROUND";
-			# grab the backdrop image from themoviedb
-			foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
-  			push ( @backdrops, $_->{url}->{value}) if ( ($_->{size}->{value} =~ /original/i) && ($_->{type}->{value} =~ /backdrop/i) );
 			}
-			if (scalar (@backdrops) > 1) {
-				# pick one randomly
-				$image_url=$backdrops[int(rand(scalar(@backdrops)))];
+			next unless DeTokenize(\$sourceData,$mediainfo,$movie_xml,@Files);
+
+			if ( $sourceData =~ /^http/i ) {
+    		$temp->Read($sourceData);
 			}
 			else {
-				$image_url=$backdrops[0];
+    		my @newSource = grep {/$sourceData/i} @Files;
+    		$sourceData=$newSource[0];
+    		$temp->Read($sourceData);
 			}
-			$temp->Read($image_url);
-		}	
-		elsif ( $sourceData =~ /\%COVER\%/ ) {
-			$sourceData="COVER";
-			my $image_url;
-			my @covers;
-			# grab the cover image from themoviedb
-			foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
-				push ( @covers, $_->{url}->{value}) if ( ($_->{size}->{value} =~ /mid/i) && ($_->{type}->{value} =~ /poster/i) );
-			}
-			if (scalar (@covers) > 1) {
-				# pick one randomly
-				$image_url=$covers[int(rand(scalar(@covers)))];
-			} 
-			else {
-				$image_url=$covers[0];
-			} 
-			print "image url $image_url\n" ;
-			$temp->Read($image_url);
+			$temp->Resize(width=>$token->attr->{Width}, height=>$token->attr->{Height}) ;
 		}
-		else {
-			print "what do I do with $sourceData\n"; 
-		}
-		$temp->Resize(width=>$token->attr->{Width}, height=>$token->attr->{Height}) ;
 
-	}
 
 	# because we are stream parsing the xml data we need to remember where on the canvas to composite this image
 	my $composite_x=$token->attr->{X};
@@ -560,11 +522,13 @@ sub AddImageElement {
 					}
 				}
 				last if ( ($token->tag =~ /Actions/) );
-			}
-		}
-	}
+			} 
+		} # end Action If
+	} # end While
+
 	$base_image->Composite(image=>$temp, compose=>'src-atop', geometry=>$geometry, x=>$composite_x, y=>$composite_y);
 	undef $temp;
+	
 }
 
 #---------------------------------------------------------------------------------------------
@@ -586,11 +550,21 @@ sub ParseFont {
 	# is this a basic font line or one with bold/italic/underline/strikeout
 	my @font_ary=split(/,/,$font);
 
+	# do we know about this font?
+
 	my %font_hash=(
 			'Family'		=>	"$font_ary[0]",
 			'Size'			=>	$font_ary[1],
 			'Unit'			=>	scalar(@font_ary) > 5 ?	$font_ary[6] : $font_ary[2],
 	);
+
+	# Check for the existence of this Font
+
+	my $temp=Image::Magick->new();
+	my @fonts=$temp->QueryFont($font_hash{Family});
+
+	print "WHOA THERE:  this font is not found ---- $font_hash{Family}\n" unless defined ($fonts[0]);
+	undef $temp;
 
 	if (scalar(@font_ary) > 5) {
 		# build a string of which ever text options are specified
@@ -632,13 +606,14 @@ sub AddTextElement {
 	use vars qw($DEBUG);
 
 	my $movie_xml=shift;
+	my $mediainfo=shift;
 	my $base_image=shift;
 	my $token=shift;
 	my $parser=shift;
 	my $Template_Path=shift;
 	my @Files=@_;
 	my $sourceData;
-	my $text;
+	my $string;
 
 	my $geometry=sprintf("%dx%d",$token->attr->{Width},$token->attr->{Height});
 	my $temp=Image::Magick->new(magick=>'png');
@@ -655,31 +630,27 @@ sub AddTextElement {
 	my $font_hash=ParseFont($token->attr->{Font});
 	my $gravity=GetGravity($token->attr->{TextAlignment} );
 
-	if ($token->attr->{Text} =~ /%/) {
-		print "Do substitution for ".$token->attr->{Text}."\n";
-			my $temp=uc($movie_xml->{OpenSearchDescription}->{movies}->{movie}->{name}->{value});
-			$text=$token->attr->{Text};
-			$text =~ s/\%.+\%/$temp/;
+	$string=$token->attr->{Text};
+	if ($string =~ /\%.+\%/) {
+		DeTokenize(\$string,$mediainfo,$movie_xml);
 	}
-	else {
-		$text=$token->attr->{Text};
-	}
-
-print "it is now ------->$text\n";
 
 	print "pointsize=$font_hash->{Size}\n";
+	print "font=$font_hash->{Family}\n";
 
-#$temp->Annotate(text=>$text, fill=>$forecolor, stroke=>$strokecolor, font=>$font_hash->{Family},
-	$temp->Annotate(text=>$text, fill=>$forecolor, stroke=>$strokecolor, font=>$font_hash->{Family}, pointsize=>$font_hash->{Size},strokewidth=>$token->attr->{StrokeWidth} ,antialias=>'True', gravity=>$gravity);
+#$temp->Set(debug=>'Annotate');
 
-	while( defined( $token = $parser->get_token() ) ){
-		if ( ($token->is_tag) && ($token->is_end_tag) && ($token->tag =~ /TextElement/) ) {
-			 last;
-		}
-		elsif ($token->tag =~ /Actions/ ) {
-			# do some actions
-		}
-	}
+#$temp->Annotate(text=>$string, fill=>$forecolor, stroke=>$strokecolor, font=>$font_hash->{Family}, pointsize=>$font_hash->{Size}+5 ,antialias=>'True', gravity=>$gravity);
+$temp->Annotate(text=>$string, fill=>$forecolor, font=>$font_hash->{Family}, pointsize=>$font_hash->{Size} ,antialias=>'True', gravity=>$gravity);
+
+#while( defined( $token = $parser->get_token() ) ){
+#if ( ($token->is_tag) && ($token->is_end_tag) && ($token->tag =~ /TextElement/) ) {
+#last;
+#}
+#elsif ($token->tag =~ /Actions/ ) {
+## do some actions
+#}
+#}
 	$base_image->Composite(image=>$temp, compose=>'src-atop', geometry=>$geometry, x=>$composite_x, y=>$composite_y);
 	undef $temp;
 }
@@ -690,9 +661,133 @@ print "it is now ------->$text\n";
 #
 #---------------------------------------------------------------------------------------------
 
+sub DeTokenize {
+# convert the template %TOKEN% tokens to their actual value
+# this requires the mediainfo hash and the moviedb xml
+	my $string=shift;  # the string where I replace the token
+	my $media_info=shift;
+	my $movie_xml=shift;
+	my @Files=@_;
+
+print "Detokeninzing $$string\n";
+
+	return 1 unless ($$string =~ /%/) ;
+
+
+return 0 if ($$string =~ /SUBTITLES/ );
+return 0 if ($$string =~ /CERTIFICATION/ );
+
+	if ($$string =~ /\%COUNTRIES\%/ ) {
+		# determine Country information
+		if (  ref($movie_xml->{OpenSearchDescription}->{movies}->{movie}->{countries}->{country}) =~ /hash/i) {
+			$$string =~ s/\%COUNTRIES\%/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{countries}->{country}->{name}->{value}/;
+		}
+		else {
+			$$string =~ s/\%COUNTRIES\%/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{countries}->{country}->[0]->{name}->{value}/;
+		}
+	}
+
+	if ($$string =~ /\%YEAR\%/ ) {
+		$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{released}->{value} =~ /.*(\d\d\d\d).*/;
+		my $year=$1;
+		$$string =~ s/\%YEAR\%/ $year/;
+	}
+
+	if ($$string =~ /\%DURATIONTEXT\%/ ) {
+		$$string =~ s/\%DURATIONTEXT\%/$media_info->{Mediainfo}->{File}->{track}->[1]->{Duration}/;
+	}
+	
+	if ($$string =~ /\%FRAMERATETEXT\%/ ) {
+		$$string =~ s/\%FRAMERATETEXT\%/$media_info->{Mediainfo}->{File}->{track}->[1]->{Frame_rate}/;
+	}
+
+	if ($$string =~ /\%ASPECTRATIOTEXT\%/ ) {
+		$$string =~ s/\%ASPECTRATIOTEXT\%/$media_info->{Mediainfo}->{File}->{track}->[1]->{Display_aspect_ratio}/;
+	}
+
+	if ($$string =~ /\%VIDEOBITRATETEXT\%/ ) {
+		$$string =~ s/\%VIDEOBITRATETEXT\%/$media_info->{Mediainfo}->{File}->{track}->[1]->{Bit_rate}/;
+	}
+
+	if ($$string =~ /\%AUDIOCHANNELSTEXT\%/ ) {
+		$$string =~ s/\%AUDIOCHANNELSTEXT\%/$media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_}/;
+		$$string =~ s/(\d+) .*$/$1 ch/;
+	}
+
+	if ($$string =~ /\%AUDIOBITRATETEXT\%/ ) {
+		$$string =~ s/\%AUDIOBITRATETEXT\%/$media_info->{Mediainfo}->{File}->{track}->[2]->{Bit_rate}/;
+	}
+
+	if ($$string =~ /\%FILESIZETEXT\%/ ) {
+		$$string =~ s/\%FILESIZETEXT\%/$media_info->{Mediainfo}->{File}->{track}->[0]->{File_size}/;
+	}
+
+	if ($$string =~ /\%RATING\%/ ) {
+		$$string =~ s/\%RATING\%/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{rating}->{value}/;
+	}
+
+	if ($$string =~ /\%GENRES\%/ ) {
+		$$string =~ s/\%GENRES\%/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{categories}->{category}->[0]->{name}->{value}/;
+	}
+
+	if ($$string =~ /\%PLOT\%/ ) {
+		$$string =~ s/\%PLOT\%/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{overview}->{value}/;
+	}
+
+
+	if ($$string =~ /\%STUDIOS\%/ ) {
+		# determine Studio information
+		if (  ref($movie_xml->{OpenSearchDescription}->{movies}->{movie}->{studios}->{studio}) =~ /hash/i) {
+			$$string =~ s/\%STUDIOS\%/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{studios}->{studio}->{name}->{value}/;
+		}
+		else {
+			$$string =~ s/\%STUDIOS\%/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{studios}->{studio}->[0]->{name}->{value}/;
+		}
+	}
+
+    
+  if ( $$string =~ /\%BACKGROUND\%/ ) {
+    my @backdrops;
+    # grab the backdrop image from themoviedb
+    foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
+      push ( @backdrops, $_->{url}->{value}) if ( ($_->{size}->{value} =~ /original/i) && ($_->{type}->{value} =~ /backdrop/i) );
+    }
+    if (scalar (@backdrops) > 1) {
+      # pick one randomly
+      # $image_url=$backdrops[ rand @backdrops ];
+      $$string =~ s/\%BACKGROUND\%/$backdrops[0]/;
+    }
+    else {
+      $$string =~ s/\%BACKGROUND\%/$backdrops[0]/;
+    }
+	}
+
+  if ( $$string =~ /\%COVER\%/ ) {
+    my @covers;
+    # grab the cover image from themoviedb
+    foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
+      push ( @covers, $_->{url}->{value}) if ( ($_->{size}->{value} =~ /mid/i) && ($_->{type}->{value} =~ /poster/i) );
+    }
+    if (scalar (@covers) > 1) {
+      # pick one randomly
+      # $image_url=$covers[ rand @covers ];
+      $$string =~ s/\%COVER\%/$covers[0]/;
+    }
+    else {
+      $$string =~ s/\%COVER\%/$covers[0]/;
+    }
+  }
+
+	print "Detokenizing Complete:\n--------------------------$$string\n\n";
+
+	return 1;
+
+}
+
 sub generate_moviesheet {
 # takes as input a movie data hash, a template file and the filenamed array
 	my $movie_xml=shift;
+	my $mediainfo=shift;
 	my $template=shift;
 	my $Template_Path=shift;
 	my @Files=@_;
@@ -716,12 +811,12 @@ sub generate_moviesheet {
 		# add an image element to the canvas
     if ( ($token->tag eq "ImageElement") && ($token->is_start_tag)  ) {
       print "ImageELement\n" if $DEBUG;
-			AddImageElement($movie_xml,$moviesheet,$token,$parser,$Template_Path,@Files);
+			AddImageElement($movie_xml,$mediainfo,$moviesheet,$token,$parser,$Template_Path,@Files);
     }
 
 		# add a text element to the canvas
     if ( ($token->tag eq "TextElement") && ($token->is_start_tag)  ) {
-			AddTextElement($movie_xml,$moviesheet,$token,$parser,$Template_Path,@Files);
+			AddTextElement($movie_xml,$mediainfo,$moviesheet,$token,$parser,$Template_Path,@Files);
     }
 	}
 	$moviesheet->Write("$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{name}->{value}.jpg");
@@ -822,6 +917,20 @@ sub GetMediaDetails {
 	return $xml_root;
 }
 
+sub GetMediaInfo {
+# call the shell program mediainfo on $actual_file_name and return a hash reference to it
+	my $movie_name=shift;
+
+	# I really hate doing it this way.  At some point it would be great to talk direct to the library
+	print "mediainfo --Output=XML $movie_name\n";
+  open my $FD, "mediainfo --Output=XML $movie_name |" or die "unable to open $movie_name";
+  my @xml=<$FD>;
+  close $FD;
+
+  my $ob = new XML::Bare(text => "@xml" );
+  return $ob->simple();
+}
+
 
 #---------------------------------------------------------------------------------------------
 #
@@ -861,16 +970,19 @@ opendir DIR, $movie_directory || die "Unable to open Movie Directory";
 closedir DIR;
 
 foreach (@movies) {
+	print ;
 	chomp;
 	my $actual_file_name = $_;
 	my $tmdb_id=GetTmdbID($actual_file_name);
+	# get the media_info hash
+	my $mediainfo=GetMediaInfo("$movie_directory/$actual_file_name");
 	$actual_file_name =~ s/\.\w+$//; # remove the trailing suffix
 
 	if ( !( -e "$movie_directory/$actual_file_name.jpg") && (defined($tmdb_id)) ) {
 		# get more detailed information using the Movie.getInfo call
 		my $xml_root=GetMediaDetails($tmdb_id);
 		# start the movie sheet generation
- 		generate_moviesheet($xml_root, $template, $Template_Path, @names);
+ 		generate_moviesheet($xml_root, $mediainfo, $template, $Template_Path, @names);
 	}
 	else {
 		print "unable to find movie data for $_\n";

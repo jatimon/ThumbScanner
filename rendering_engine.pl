@@ -229,8 +229,8 @@ sub Skew{
 				$orig_image->Resize(height=>($height+$delta));
 				@skew_points=split(/[ ,]+/,sprintf("0,0 0,0   0,%d 0,%d   %d,0 %d,%d   %d,%d %d,%d", # top left does not change
 					$height, $height, # bottom left does not move
-					$width, $width, $delta, # top right slides down
-					$width, $height, $width, $height-$delta, # bottom right slides up
+					$width, $width-$delta, $delta, # top right slides down
+					$width, $height, $width-$delta, $height-$delta, # bottom right slides up
 					));
 			}
 			else {
@@ -638,6 +638,8 @@ sub AddTextElement {
 	my $Template_Path=shift;
 	my @Files=@_;
 	my $sourceData;
+	my $text;
+
 	my $geometry=sprintf("%dx%d",$token->attr->{Width},$token->attr->{Height});
 	my $temp=Image::Magick->new(magick=>'png');
 	$temp->Set( size=>sprintf("%dx%d",$token->attr->{Width},$token->attr->{Height}) );
@@ -653,8 +655,22 @@ sub AddTextElement {
 	my $font_hash=ParseFont($token->attr->{Font});
 	my $gravity=GetGravity($token->attr->{TextAlignment} );
 
-	$temp->Annotate(text=>$token->attr->{Text}, fill=>$forecolor, stroke=>$strokecolor, font=>$font_hash->{Family},
-					pointsize=>$font_hash->{Size} ,antialias=>'True', gravity=>$gravity);
+	if ($token->attr->{Text} =~ /%/) {
+		print "Do substitution for ".$token->attr->{Text}."\n";
+			my $temp=uc($movie_xml->{OpenSearchDescription}->{movies}->{movie}->{name}->{value});
+			$text=$token->attr->{Text};
+			$text =~ s/\%.+\%/$temp/;
+	}
+	else {
+		$text=$token->attr->{Text};
+	}
+
+print "it is now ------->$text\n";
+
+	print "pointsize=$font_hash->{Size}\n";
+
+#$temp->Annotate(text=>$text, fill=>$forecolor, stroke=>$strokecolor, font=>$font_hash->{Family},
+	$temp->Annotate(text=>$text, fill=>$forecolor, stroke=>$strokecolor, font=>$font_hash->{Family}, pointsize=>$font_hash->{Size},strokewidth=>$token->attr->{StrokeWidth} ,antialias=>'True', gravity=>$gravity);
 
 	while( defined( $token = $parser->get_token() ) ){
 		if ( ($token->is_tag) && ($token->is_end_tag) && ($token->tag =~ /TextElement/) ) {
@@ -786,6 +802,7 @@ sub GetTmdbID {
 		$tmdb_id=$xml_root->{OpenSearchDescription}->{movies}->{movie}->{id};
 	}
 
+	print "tmdb=$tmdb_id\n";
 	return $tmdb_id;
 }	
 

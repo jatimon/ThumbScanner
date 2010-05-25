@@ -13,9 +13,8 @@ use File::Finder;
 use Math::Trig;
 use XML::Bare;
 use LWP::UserAgent;
+use HTML::Entities;
 
-#use Text::Wrap;
-#use HTML::Entities;
 #
 #$Text::Wrap::initial_tab = "\t";    # Tab before first line
 #$Text::Wrap::subsequent_tab = "";   # All other lines flush left
@@ -602,9 +601,8 @@ sub AddTextElement {
 # Two basic types of text elements;
 # 1) those with effect i.e. Action
 # 2) those without
-#
-	use vars qw($DEBUG);
 
+	use vars qw($DEBUG);
 	my $movie_xml=shift;
 	my $mediainfo=shift;
 	my $base_image=shift;
@@ -635,24 +633,38 @@ sub AddTextElement {
 		DeTokenize(\$string,$mediainfo,$movie_xml);
 	}
 
-	print "pointsize=$font_hash->{Size}\n";
-	print "font=$font_hash->{Family}\n";
 
-#$temp->Set(debug=>'Annotate');
+	my @text_attributes=$temp->QueryFontMetrics(text=>$string, fill=>$forecolor, font=>$font_hash->{Family}, pointsize=>$font_hash->{Size} ,antialias=>'True', gravity=>$gravity);
+	print "text_width=$text_attributes[4]\n";
+	if ($text_attributes[4] > $token->attr->{Width} ) {
+		# time to wrap some text
+		$string=TextWrap($string, $token->attr->{Width}, \@text_attributes)
+	}
 
-#$temp->Annotate(text=>$string, fill=>$forecolor, stroke=>$strokecolor, font=>$font_hash->{Family}, pointsize=>$font_hash->{Size}+5 ,antialias=>'True', gravity=>$gravity);
-$temp->Annotate(text=>$string, fill=>$forecolor, font=>$font_hash->{Family}, pointsize=>$font_hash->{Size} ,antialias=>'True', gravity=>$gravity);
+	$temp->Annotate(text=>$string, fill=>$forecolor, font=>$font_hash->{Family}, pointsize=>$font_hash->{Size} ,antialias=>'True', gravity=>$gravity);
 
-#while( defined( $token = $parser->get_token() ) ){
-#if ( ($token->is_tag) && ($token->is_end_tag) && ($token->tag =~ /TextElement/) ) {
-#last;
-#}
-#elsif ($token->tag =~ /Actions/ ) {
-## do some actions
-#}
-#}
 	$base_image->Composite(image=>$temp, compose=>'src-atop', geometry=>$geometry, x=>$composite_x, y=>$composite_y);
 	undef $temp;
+}
+
+sub TextWrap {
+# wrap some text
+	my $string=shift;
+	my $image_width=shift;
+	my $text_attributes=shift;
+
+# TODO
+
+
+		my $wrap_width=int ($token->attr->{Width}/$text_attributes[0]);
+		print "@text_attributes\n";
+		print $token->attr->{Width}."\n";
+		print "WRAPPING at $wrap_width columns\n";
+		$Text::Wrap::columns = $wrap_width;
+		$string =~ /^(\W+)/;
+		my $newstring=wrap($1,'',$string);
+		$string=$newstring;
+
 }
 
 #---------------------------------------------------------------------------------------------
@@ -664,18 +676,18 @@ $temp->Annotate(text=>$string, fill=>$forecolor, font=>$font_hash->{Family}, poi
 sub DeTokenize {
 # convert the template %TOKEN% tokens to their actual value
 # this requires the mediainfo hash and the moviedb xml
+	use vars qw($DEBUG);
 	my $string=shift;  # the string where I replace the token
 	my $media_info=shift;
 	my $movie_xml=shift;
 	my @Files=@_;
 
-print "Detokeninzing $$string\n";
-
 	return 1 unless ($$string =~ /%/) ;
 
+	print "Detokenizing $$string\n";
 
-return 0 if ($$string =~ /SUBTITLES/ );
-return 0 if ($$string =~ /CERTIFICATION/ );
+#return 0 if ($$string =~ /SUBTITLES/ );
+#return 0 if ($$string =~ /CERTIFICATION/ );
 
 	if ($$string =~ /\%COUNTRIES\%/ ) {
 		# determine Country information
@@ -691,6 +703,19 @@ return 0 if ($$string =~ /CERTIFICATION/ );
 		$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{released}->{value} =~ /.*(\d\d\d\d).*/;
 		my $year=$1;
 		$$string =~ s/\%YEAR\%/ $year/;
+	}
+
+	if ($$string =~ /\%.*TITLE\%/ ) {
+		$$string =~ s/\%.*TITLE\%/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{name}->{value}/;
+		if ( $$string =~ /\{(.+)\}/ ) {
+			if ( $1 eq "UPPER" ) {
+				$$string=uc($$string);
+				$$string =~ s/\{UPPER\}//;
+			}
+			else {
+				print "what do I do with $1?\n";
+			}
+		}
 	}
 
 	if ($$string =~ /\%DURATIONTEXT\%/ ) {
@@ -734,7 +759,6 @@ return 0 if ($$string =~ /CERTIFICATION/ );
 		$$string =~ s/\%PLOT\%/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{overview}->{value}/;
 	}
 
-
 	if ($$string =~ /\%STUDIOS\%/ ) {
 		# determine Studio information
 		if (  ref($movie_xml->{OpenSearchDescription}->{movies}->{movie}->{studios}->{studio}) =~ /hash/i) {
@@ -744,7 +768,6 @@ return 0 if ($$string =~ /CERTIFICATION/ );
 			$$string =~ s/\%STUDIOS\%/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{studios}->{studio}->[0]->{name}->{value}/;
 		}
 	}
-
     
   if ( $$string =~ /\%BACKGROUND\%/ ) {
     my @backdrops;
@@ -778,8 +801,11 @@ return 0 if ($$string =~ /CERTIFICATION/ );
     }
   }
 
-	print "Detokenizing Complete:\n--------------------------$$string\n\n";
-
+	if ($$string =~ /\%.+\%/ ) {
+		# add some color so this stands out
+		print "[31mUnable to Detokenize -> $$string [0m \n";
+		return 0;
+	} 
 	return 1;
 
 }
@@ -890,14 +916,12 @@ sub GetTmdbID {
 	my $xml_root=$xml_ob->simple();
 
 	if ( $xml_root->{OpenSearchDescription}->{'opensearch:totalResults'} > 1 ) {
-		print "WARNING: Multiply movie entries for this title\n";
+		print "WARNING: Multiply movie entries for this title\n" ;
 		$tmdb_id=$xml_root->{OpenSearchDescription}->{movies}->{movie}->[0]->{id};
 	}
 	else {
 		$tmdb_id=$xml_root->{OpenSearchDescription}->{movies}->{movie}->{id};
 	}
-
-	print "tmdb=$tmdb_id\n";
 	return $tmdb_id;
 }	
 
@@ -911,7 +935,8 @@ sub GetMediaDetails {
 	$ua->env_proxy;
 
 	my $response = $ua->get("http://api.themoviedb.org/2.1/Movie.getInfo/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$tmdb_id");
-	my $xml_ob = new XML::Bare(text => $response->decoded_content );
+	my $xml_data=decode_entities($response->decoded_content);
+	my $xml_ob = new XML::Bare(text => $xml_data );
 	my $xml_root=$xml_ob->parse();
 
 	return $xml_root;
@@ -922,8 +947,8 @@ sub GetMediaInfo {
 	my $movie_name=shift;
 
 	# I really hate doing it this way.  At some point it would be great to talk direct to the library
-	print "mediainfo --Output=XML $movie_name\n";
-  open my $FD, "mediainfo --Output=XML $movie_name |" or die "unable to open $movie_name";
+	# some effort should be put into ensuring that $movie_name is safe
+  open my $FD, "mediainfo --Output=XML '$movie_name' |" or die "unable to open $movie_name";
   my @xml=<$FD>;
   close $FD;
 
@@ -970,7 +995,6 @@ opendir DIR, $movie_directory || die "Unable to open Movie Directory";
 closedir DIR;
 
 foreach (@movies) {
-	print ;
 	chomp;
 	my $actual_file_name = $_;
 	my $tmdb_id=GetTmdbID($actual_file_name);

@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl 
 
 $|=1;
 
@@ -399,135 +399,129 @@ sub AddImageElement {
 	my $temp=Image::Magick->new(geometry=>$geometry);
 		
 		$sourceData=$token->attr->{SourceData};
-	if ( $token->attr->{Source} eq "File" ) {
+#if ( $token->attr->{Source} eq "File" ) {
 
 		# File Sources are two types;
 		#	1) path to file
 		# 2) variable reference to downloaded content
 
 
-		if ( $sourceData =~ /\%PATH\%/ ) {
-			# fix the source, it will come in Window Path Format, switch it to Unix
-			$sourceData =~ s/\%PATH\%/$Template_Path/;
-			$sourceData =~ tr |\\|/|;
-			}
-			next unless DeTokenize(\$sourceData,$mediainfo,$movie_xml,@Files);
+				next unless DeTokenize(\$sourceData,$mediainfo,$movie_xml,$Template_Path,@Files);
 
-			if ( $sourceData =~ /^http/i ) {
-    		$temp->Read($sourceData);
-			}
-			else {
-    		my @newSource = grep {/$sourceData/i} @Files;
-    		$sourceData=$newSource[0];
-    		$temp->Read($sourceData);
-			}
-			$temp->Resize(width=>$token->attr->{Width}, height=>$token->attr->{Height}) ;
-		}
-
-
-	# because we are stream parsing the xml data we need to remember where on the canvas to composite this image
-	my $composite_x=$token->attr->{X};
-	my $composite_y=$token->attr->{Y};
-	while( defined( $token = $parser->get_token() ) ){
-		if ( ($token->is_tag) && ($token->is_end_tag) && ($token->tag =~ /ImageElement/) ) {
-			 last;
-		}
-		elsif ($token->tag =~ /Actions/ ) {
-			# start applying effects to the image.
-			while( defined( $token = $parser->get_token() ) ){
-				if ( ($token->tag =~ /Crop/) && ($token->is_start_tag)  ) { 
-					print "Cropping $sourceData\n" if $DEBUG;
-					$temp->Crop(width=>$token->attr->{Width},  
-						height=>$token->attr->{Height},  
-						x=>$token->attr->{X},  
-						y=>$token->attr->{Y} );
-				}
-				elsif ( ($token->tag =~ /GlassTable/i) && ($token->is_start_tag)  ) {
-					print "glasstabling $sourceData\n" if $DEBUG;
-					$temp=GlassTable($temp,
-						$token->attr->{ReflectionLocationX},
-						$token->attr->{ReflectionLocationY},
-						$token->attr->{ReflectionOpacity}, 
-						$token->attr->{ReflectionPercentage});
-				}
-				elsif ( ($token->tag =~ /AdjustOpacity/i) && ($token->is_start_tag)  ) {
-					my $opacity_percent=($token->attr->{Opacity}/100);
-					print "Adjusting Opacity $sourceData by $opacity_percent \n" if $DEBUG ;
-					# in ImageDraw, opacity ranges from 0 (fully transparent) to 100 (fully Opaque)
-					$temp->Evaluate(value=>$opacity_percent, operator=>'Multiply', channel=>'All');
-				}		
-				elsif ( ($token->tag =~ /RoundCorners/i) && ($token->is_start_tag)  ) {
-					print "Rounding Corners $sourceData\n" if $DEBUG  ;
-       		$temp=RoundCorners($temp,
-       			$token->attr->{BorderColor},
-       			$token->attr->{BorderWidth},
-       			$token->attr->{Roundness},
-       			$token->attr->{Corners});
-				}
-				elsif ( ($token->tag =~ /AdjustSaturation/i) && ($token->is_start_tag)  ) {
-					my $level=($token->attr->{Level} * 255)/100; # imagemagick saturation is range 0-255 
-					print "Adjusting Saturation level $level $sourceData\n" if $DEBUG ;
-					$temp->Modulate(saturation=>$level );
-				}
-				elsif ( ($token->tag =~ /AdjustBrightness/i) && ($token->is_start_tag)  ) {
-					my $level=($token->attr->{Level} * 255)/100; # imagemagick brightness is range 0-255 
-					print "Adjusting brightness level $level $sourceData\n" if $DEBUG ;
-					$temp->Modulate(brightness=>$level );
-				}
-				elsif ( ($token->tag =~ /PerspectiveView/i) && ($token->is_start_tag)  ) {
-					print "Adjusting PerspectiveView $sourceData\n" if $DEBUG;
-					$temp=PerspectiveView($temp,
-						$token->attr->{Angle},
-						$token->attr->{Orientation}
-					);	
-				}
-				elsif ( ($token->tag =~ /Rotate/i) && ($token->is_start_tag)  ) {
-					my $degrees=$token->attr->{Angle} * (-1);
-					print "Rotating $sourceData by $degrees degrees\n" if $DEBUG ;
-					my ($width, $height) = $temp->Get('columns', 'rows');
-       		my @points=split(/[ ,]+/,sprintf("0,%d 100 %d",$height,$degrees));
-					print $temp->Distort(method=>'ScaleRotateTranslate','best-fit'=>'False','virtual-pixel'=>'transparent',points=>\@points);
-				}
-				elsif ( ($token->tag =~ /DropShadow/i) && ($token->is_start_tag)  ) {
-					print "Adding Shadow to $sourceData\n" if $DEBUG ;
-					$temp=DropShadow($temp,
-						$token->attr->{Angle},
-						$token->attr->{Color},
-						$token->attr->{Distance},
-						$token->attr->{Opacity},
-						$token->attr->{Softness}
-					);
-				}
-				elsif ( ($token->tag =~ /Skew/i) && ($token->is_start_tag)  ) {
-					print "Skewing $sourceData\n" if $DEBUG ;
-					$temp=Skew($temp,
-					$token->attr->{Angle},
-					$token->attr->{ConstrainProportions},
-					$token->attr->{Orientation}, 
-					$token->attr->{Type});
-				}
-				elsif ( ($token->tag =~ /Flip/i) && ($token->is_start_tag)  ) {
-					print "Flipping/Flopping $sourceData\n" if $DEBUG ;
-					if ( $token->attr->{Type} =~ /Horizontal/i ) { 
-						$temp->Flip();
-					}
-					else {
-						$temp->Flop();
-					}
+				if ( $sourceData =~ /^http/i ) {
+    			$temp->Read($sourceData);
 				}
 				else {
-					if ( ( $token->tag ) && ( $token->is_start_tag ) ) {
-						print "don't know what to do with " . $token->tag . "\n";;
-					}
+    			my @newSource = grep {/$sourceData/i} @Files;
+    			$sourceData=$newSource[0];
+    			$temp->Read($sourceData);
 				}
-				last if ( ($token->tag =~ /Actions/) );
-			} 
-		} # end Action If
-	} # end While
-
-	$base_image->Composite(image=>$temp, compose=>'src-atop', geometry=>$geometry, x=>$composite_x, y=>$composite_y);
-	undef $temp;
+				$temp->Resize(width=>$token->attr->{Width}, height=>$token->attr->{Height}) ;
+#}
 	
+	
+		# because we are stream parsing the xml data we need to remember where on the canvas to composite this image
+		my $composite_x=$token->attr->{X};
+		my $composite_y=$token->attr->{Y};
+		while( defined( $token = $parser->get_token() ) ){
+			if ( ($token->is_tag) && ($token->is_end_tag) && ($token->tag =~ /ImageElement/) ) {
+			 	last;
+			}
+			elsif ($token->tag =~ /Actions/ ) {
+				# start applying effects to the image.
+				while( defined( $token = $parser->get_token() ) ){
+					if ( ($token->tag =~ /Crop/) && ($token->is_start_tag)  ) { 
+						print "Cropping $sourceData\n" if $DEBUG;
+						$temp->Crop(width=>$token->attr->{Width},  
+							height=>$token->attr->{Height},  
+							x=>$token->attr->{X},  
+							y=>$token->attr->{Y} );
+					}
+					elsif ( ($token->tag =~ /GlassTable/i) && ($token->is_start_tag)  ) {
+						print "glasstabling $sourceData\n" if $DEBUG;
+						$temp=GlassTable($temp,
+							$token->attr->{ReflectionLocationX},
+							$token->attr->{ReflectionLocationY},
+							$token->attr->{ReflectionOpacity}, 
+							$token->attr->{ReflectionPercentage});
+					}
+					elsif ( ($token->tag =~ /AdjustOpacity/i) && ($token->is_start_tag)  ) {
+						my $opacity_percent=($token->attr->{Opacity}/100);
+						print "Adjusting Opacity $sourceData by $opacity_percent \n" if $DEBUG ;
+						# in ImageDraw, opacity ranges from 0 (fully transparent) to 100 (fully Opaque)
+						$temp->Evaluate(value=>$opacity_percent, operator=>'Multiply', channel=>'All');
+					}		
+					elsif ( ($token->tag =~ /RoundCorners/i) && ($token->is_start_tag)  ) {
+						print "Rounding Corners $sourceData\n" if $DEBUG  ;
+       			$temp=RoundCorners($temp,
+       				$token->attr->{BorderColor},
+       				$token->attr->{BorderWidth},
+       				$token->attr->{Roundness},
+       				$token->attr->{Corners});
+					}
+					elsif ( ($token->tag =~ /AdjustSaturation/i) && ($token->is_start_tag)  ) {
+						my $level=($token->attr->{Level} * 255)/100; # imagemagick saturation is range 0-255 
+						print "Adjusting Saturation level $level $sourceData\n" if $DEBUG ;
+						$temp->Modulate(saturation=>$level );
+					}
+					elsif ( ($token->tag =~ /AdjustBrightness/i) && ($token->is_start_tag)  ) {
+						my $level=($token->attr->{Level} * 255)/100; # imagemagick brightness is range 0-255 
+						print "Adjusting brightness level $level $sourceData\n" if $DEBUG ;
+						$temp->Modulate(brightness=>$level );
+					}
+					elsif ( ($token->tag =~ /PerspectiveView/i) && ($token->is_start_tag)  ) {
+						print "Adjusting PerspectiveView $sourceData\n" if $DEBUG;
+						$temp=PerspectiveView($temp,
+							$token->attr->{Angle},
+							$token->attr->{Orientation}
+						);	
+					}
+					elsif ( ($token->tag =~ /Rotate/i) && ($token->is_start_tag)  ) {
+						my $degrees=$token->attr->{Angle} * (-1);
+						print "Rotating $sourceData by $degrees degrees\n" if $DEBUG ;
+						my ($width, $height) = $temp->Get('columns', 'rows');
+       			my @points=split(/[ ,]+/,sprintf("0,%d 100 %d",$height,$degrees));
+						print $temp->Distort(method=>'ScaleRotateTranslate','best-fit'=>'False','virtual-pixel'=>'transparent',points=>\@points);
+					}
+					elsif ( ($token->tag =~ /DropShadow/i) && ($token->is_start_tag)  ) {
+						print "Adding Shadow to $sourceData\n" if $DEBUG ;
+						$temp=DropShadow($temp,
+							$token->attr->{Angle},
+							$token->attr->{Color},
+							$token->attr->{Distance},
+							$token->attr->{Opacity},
+							$token->attr->{Softness}
+						);
+					}
+					elsif ( ($token->tag =~ /Skew/i) && ($token->is_start_tag)  ) {
+						print "Skewing $sourceData\n" if $DEBUG ;
+						$temp=Skew($temp,
+						$token->attr->{Angle},
+						$token->attr->{ConstrainProportions},
+						$token->attr->{Orientation}, 
+						$token->attr->{Type});
+					}
+					elsif ( ($token->tag =~ /Flip/i) && ($token->is_start_tag)  ) {
+						print "Flipping/Flopping $sourceData\n" if $DEBUG ;
+						if ( $token->attr->{Type} =~ /Horizontal/i ) { 
+							$temp->Flip();
+						}
+						else {
+							$temp->Flop();
+						}
+					}
+					else {
+						if ( ( $token->tag ) && ( $token->is_start_tag ) ) {
+							print "don't know what to do with " . $token->tag . "\n";;
+						}
+					}
+					last if ( ($token->tag =~ /Actions/) );
+				} 
+			} # end Action If
+		} # end While
+	
+		$base_image->Composite(image=>$temp, compose=>'src-atop', geometry=>$geometry, x=>$composite_x, y=>$composite_y);
+		undef $temp;
 }
 
 #---------------------------------------------------------------------------------------------
@@ -562,7 +556,7 @@ sub ParseFont {
 	my $temp=Image::Magick->new();
 	my @fonts=$temp->QueryFont($font_hash{Family});
 
-	print "WHOA THERE:  this font is not found ---- $font_hash{Family}\n" unless defined ($fonts[0]);
+	print "[31mWHOA THERE:[0m  [33mthis font is not found ---- [01m$font_hash{Family}[0m\n" unless defined ($fonts[0]);
 	undef $temp;
 
 	if (scalar(@font_ary) > 5) {
@@ -630,15 +624,14 @@ sub AddTextElement {
 
 	$string=$token->attr->{Text};
 	if ($string =~ /\%.+\%/) {
-		DeTokenize(\$string,$mediainfo,$movie_xml);
+		DeTokenize(\$string,$mediainfo,$movie_xml,$Template_Path,@Files);
 	}
 
 
 	my @text_attributes=$temp->QueryFontMetrics(text=>$string, fill=>$forecolor, font=>$font_hash->{Family}, pointsize=>$font_hash->{Size} ,antialias=>'True', gravity=>$gravity);
-	print "text_width=$text_attributes[4]\n";
 	if ($text_attributes[4] > $token->attr->{Width} ) {
 		# time to wrap some text
-		$string=TextWrap($string, $token->attr->{Width}, \@text_attributes)
+		$string=TextWrap($string, $token->attr->{Width}, $font_hash->{Family}, $font_hash->{Size})
 	}
 
 	$temp->Annotate(text=>$string, fill=>$forecolor, font=>$font_hash->{Family}, pointsize=>$font_hash->{Size} ,antialias=>'True', gravity=>$gravity);
@@ -651,19 +644,35 @@ sub TextWrap {
 # wrap some text
 	my $string=shift;
 	my $image_width=shift;
-	my $text_attributes=shift;
+	my $family=shift;
+	my $point=shift;
 
-# TODO
+# the logic I am working with is render an image add text get metrics see if it fits
+# rinse and repeat
 
+	my $temp_img=Image::Magick->new(magick=>'png');
+	my $new_text;
+	my $running_text="";
 
-		my $wrap_width=int ($token->attr->{Width}/$text_attributes[0]);
-		print "@text_attributes\n";
-		print $token->attr->{Width}."\n";
-		print "WRAPPING at $wrap_width columns\n";
-		$Text::Wrap::columns = $wrap_width;
-		$string =~ /^(\W+)/;
-		my $newstring=wrap($1,'',$string);
-		$string=$newstring;
+	my @ary=split(/\s/,$string);
+
+	foreach (@ary) {
+  	$temp_img->Set(size=>sprintf("%dx100",$image_width));
+  	$temp_img->Read('xc:none');
+  	$temp_img->Annotate(text=>"$running_text $_",font=>$family,pointsize=>$point);
+		if (($temp_img->QueryFontMetrics(text=>"$running_text $_",font=>$family,pointsize=>$point))[4] < $image_width ) {
+  		$running_text="$running_text $_";
+		}
+		else {
+			$new_text.="$running_text\n";
+			$running_text=$_;
+		}
+  	@$temp_img=();
+}
+		$new_text.="$running_text\n";
+			
+	return $new_text;
+
 
 }
 
@@ -680,14 +689,13 @@ sub DeTokenize {
 	my $string=shift;  # the string where I replace the token
 	my $media_info=shift;
 	my $movie_xml=shift;
+	my $Template_Path=shift;
 	my @Files=@_;
 
 	return 1 unless ($$string =~ /%/) ;
 
-	print "Detokenizing $$string\n";
+	print "Detokenizing $$string\n" if $DEBUG;
 
-#return 0 if ($$string =~ /SUBTITLES/ );
-#return 0 if ($$string =~ /CERTIFICATION/ );
 
 	if ($$string =~ /\%COUNTRIES\%/ ) {
 		# determine Country information
@@ -801,9 +809,39 @@ sub DeTokenize {
     }
   }
 
+	if ($$string =~ /\%VIDEOFORMAT\%/ ) {
+		my $rep=qw/%PATH%\..\Common\video_format\h264.png/;
+		$$string =~ s/\%VIDEOFORMAT\%/$rep/;
+		print "-> VIDEOFORMAT STRING -> $$string\n";
+	}
+
+	if ($$string =~ /\%MEDIAFORMAT\%/ ) {
+		my $rep=qw/%PATH%\..\Common\video_format\h264.png/;
+		$$string =~ s/\%MEDIAFORMAT\%/$rep/;
+		print "-> MEDIAFORMAT STRING -> $$string\n";
+	}
+
+	if ($$string =~ /\%RESOLUTION\%/ ) {
+		my $rep=qw/%PATH%\..\Common\video_format\h264.png/;
+		$$string =~ s/\%RESOLUTION\%/$rep/;
+		print "-> RESOLUTION STRING -> $$string\n";
+	}
+
+	if ($$string =~ /\%SOUNDFORMAT\%/ ) {
+		my $rep=qw/%PATH%\..\Common\video_format\h264.png/;
+		$$string =~ s/\%SOUNDFORMAT\%/$rep/;
+		print "-> SOUNDFORMAT STRING -> $$string\n";
+	}
+
+	if ( $$string =~ /\%PATH\%/ ) {
+		# fix the source, it will come in Window Path Format, switch it to Unix
+		$$string =~ s/\%PATH\%/$Template_Path/;
+		$$string =~ tr |\\|/|;
+	}
+
 	if ($$string =~ /\%.+\%/ ) {
 		# add some color so this stands out
-		print "[31mUnable to Detokenize -> $$string [0m \n";
+		print "[33mUnable to Detokenize -> $$string [0m \n";
 		return 0;
 	} 
 	return 1;
@@ -836,12 +874,13 @@ sub generate_moviesheet {
 
 		# add an image element to the canvas
     if ( ($token->tag eq "ImageElement") && ($token->is_start_tag)  ) {
-      print "ImageELement\n" if $DEBUG;
+      print "ImageElement\n" if $DEBUG;
 			AddImageElement($movie_xml,$mediainfo,$moviesheet,$token,$parser,$Template_Path,@Files);
     }
 
 		# add a text element to the canvas
     if ( ($token->tag eq "TextElement") && ($token->is_start_tag)  ) {
+      print "TextElement\n" if $DEBUG;
 			AddTextElement($movie_xml,$mediainfo,$moviesheet,$token,$parser,$Template_Path,@Files);
     }
 	}

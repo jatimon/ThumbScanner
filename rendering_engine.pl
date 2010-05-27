@@ -392,29 +392,58 @@ sub AddImageElement {
 	my @Files=@_;
 	my $sourceData;
 	my $geometry=sprintf("%dx%d",$token->attr->{Width},$token->attr->{Height});
-	my $temp=Image::Magick->new(geometry=>$geometry);
+#my $temp=Image::Magick->new(geometry=>$geometry);
+	my $temp=Image::Magick->new(magick=>'png');
 		
 		$sourceData=$token->attr->{SourceData};
-#if ( $token->attr->{Source} eq "File" ) {
+		if ( $sourceData =~ /\%RATINGSTARS\%/ ) {
+			# this token is part of the Settings token in the template.xml file
+			my $source=$template_xml->{Template}->{Settings}->{Rating}->{FileName}->{value};
+			next unless DeTokenize(\$source,$mediainfo,$movie_xml,$Template_Path,$template_xml,@Files);
+			my $rating=$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{rating}->{value};
+			$rating=6.5;
+    	$temp->Read($source);
+			my ($width, $height) = $temp->Get('columns', 'rows');
+			# single star
+			$temp->Crop(width=>$width/2,height=>$height);
+			my $rating_image=Image::Magick->new(magick=>'png');
 
-		# File Sources are two types;
-		#	1) path to file
-		# 2) variable reference to downloaded content
+			my ($full_stars,$remainder) = split (/\./, $rating);
+			my $clipboard=Image::Magick->new();
 
+			for (my $count = 1; $count <= $full_stars; $count++) {
+				push(@$clipboard, $rating_image);
+				push(@$clipboard, $temp);
+				$rating_image=$clipboard->Append(stack=>'false');
+				@$clipboard=();
+			}
 
-				next unless DeTokenize(\$sourceData,$mediainfo,$movie_xml,$Template_Path,$template_xml,@Files);
+			if ( $remainder > 0 ) {
+				 # add a partial star
+				$temp->Crop(width=>($width/2*$remainder/10), height=>$height);
+				push(@$clipboard, $rating_image);
+				push(@$clipboard, $temp);
+				$rating_image=$clipboard->Append(stack=>'false');
+				@$clipboard=();
+			}
 
-				if ( $sourceData =~ /^http/i ) {
-    			$temp->Read($sourceData);
-				}
-				else {
-    			my @newSource = grep {/$sourceData/i} @Files;
-    			$sourceData=$newSource[0];
-    			$temp->Read($sourceData);
-				}
-				$temp->Resize(width=>$token->attr->{Width}, height=>$token->attr->{Height}) ;
-#}
-	
+			$temp=$rating_image;
+
+#$temp->Resize(width=>$width*$rating, height=>$height) ;
+		}
+		else {
+			next unless DeTokenize(\$sourceData,$mediainfo,$movie_xml,$Template_Path,$template_xml,@Files);
+
+			if ( $sourceData =~ /^http/i ) {
+    		$temp->Read($sourceData);
+			}
+			else {
+    		my @newSource = grep {/$sourceData/i} @Files;
+    		$sourceData=$newSource[0];
+    		$temp->Read($sourceData);
+			}
+			$temp->Resize(width=>$token->attr->{Width}, height=>$token->attr->{Height}) ;
+		}
 	
 		# because we are stream parsing the xml data we need to remember where on the canvas to composite this image
 		my $composite_x=$token->attr->{X};
@@ -687,11 +716,14 @@ sub DeTokenize {
 	my $media_info=shift;
 	my $movie_xml=shift;
 	my $Template_Path=shift;
+	my $template_xml=shift;
 	my @Files=@_;
 
 	return 1 unless ($$string =~ /%/) ;
 
 	print "Detokenizing $$string\n" if $DEBUG;
+
+	print "Template XML -> $template_xml\n" if $DEBUG;
 
 
 	if ($$string =~ /\%COUNTRIES\%/ ) {
@@ -756,10 +788,6 @@ sub DeTokenize {
 		$$string =~ s/\%RATING\%/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{rating}->{value}/;
 	}
 
-	if ($$string =~ /\%GENRES\%/ ) {
-		$$string =~ s/\%GENRES\%/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{categories}->{category}->[0]->{name}->{value}/;
-	}
-
 	if ($$string =~ /\%PLOT\%/ ) {
 		$$string =~ s/\%PLOT\%/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{overview}->{value}/;
 	}
@@ -773,6 +801,20 @@ sub DeTokenize {
 			$$string =~ s/\%STUDIOS\%/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{studios}->{studio}->[0]->{name}->{value}/;
 		}
 	}
+    
+  if ( $$string =~ /\%FANART.\%/ ) {
+    my @fanart;
+    # grab the fanart image from themoviedb
+    foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
+      push ( @fanart, $_->{url}->{value}) if ( ($_->{size}->{value} =~ /original/i) && ($_->{type}->{value} =~ /backdrop/i) );
+    }
+		$$string =~ /(\d)/;
+		my $fan_art_number=$1;
+    if (scalar (@fanart) > $fan_art_number) {
+      $$string =~ s/\%FANART.\%/$fanart[$fan_art_number]/;
+    }
+	}
+
     
   if ( $$string =~ /\%BACKGROUND\%/ ) {
     my @backdrops;
@@ -807,15 +849,19 @@ sub DeTokenize {
   }
 
 	if ($$string =~ /\%VIDEOFORMAT\%/ ) {
-		my $rep=qw/%PATH%\..\Common\video_format\h264.png/;
+		my $rep;
+		foreach (@{$template_xml->{Template}->{VideoFormats}->{VideoFormat} }) {
+			$rep = $_->{Image}->{value} if $media_info->{Mediainfo}->{File}->{track}->[1]->{Codec_ID_Hint} =~  /$_->{Text}->{value}/i;
+		}
 		$$string =~ s/\%VIDEOFORMAT\%/$rep/;
-		print "-> VIDEOFORMAT STRING -> $$string\n";
 	}
 
 	if ($$string =~ /\%MEDIAFORMAT\%/ ) {
-		my $rep=qw/%PATH%\..\Common\video_format\h264.png/;
+		my $rep;
+		foreach (@{$template_xml->{Template}->{MediaFormats}->{MediaFormat} }) {
+			$rep = $_->{Image}->{value} if $media_info->{Mediainfo}->{File}->{track}->[1]->{Format} =~  /$_->{Text}->{value}/i;
+		}
 		$$string =~ s/\%MEDIAFORMAT\%/$rep/;
-		print "-> MEDIAFORMAT STRING -> $$string\n";
 	}
 
 	if ($$string =~ /\%RESOLUTION\%/ ) {
@@ -825,10 +871,82 @@ sub DeTokenize {
 	}
 
 	if ($$string =~ /\%SOUNDFORMAT\%/ ) {
-		my $rep=qw/%PATH%\..\Common\video_format\h264.png/;
+		# this is a bit more involved given the permutations of media formats
+		my $format=$media_info->{Mediainfo}->{File}->{track}->[2]->{Format};
+		my $format_version=$media_info->{Mediainfo}->{File}->{track}->[2]->{Format_version};
+		my $channels=$media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_};
+		my $text;
+		my $rep;
+
+		if ( $format =~ /mpeg/i ) {
+			if ( $format_version =~ /1/ ) {
+				$text="MP3 1.0";
+			}
+			elsif ( $format_version =~ /2/ ) {
+				$text="MP3 2.0";
+			}
+			else {
+				$text="All Mpeg";
+			}
+		} # elses for other formats
+		
+		foreach (@{$template_xml->{Template}->{SoundFormats}->{SoundFormat} }) {
+			$rep = $_->{Image}->{value} if $text =~  /$_->{Text}->{value}/i;
+		}
 		$$string =~ s/\%SOUNDFORMAT\%/$rep/;
-		print "-> SOUNDFORMAT STRING -> $$string\n";
 	}
+
+	if ($$string =~ /\%ACTORS\%/ ) {
+		my @actors;
+	  foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{cast}->{person} } ) {
+      push (@actors, $_->{name}->{value}) if lc($_->{job}->{value}) eq "actor" ;
+ 		}   
+	
+		# we have an array of every director in this movie.  the template defines a max and a join character
+		my $max=$template_xml->{Template}->{Settings}->{Actors}->{MaximumValues}->{value};
+		my $join_char=$template_xml->{Template}->{Settings}->{Actors}->{Separator}->{value};
+
+		# truncate the array if necessary
+		$#actors=($max-1) if $#actors>$max;
+
+		my $rep=join($join_char,@actors);
+		$$string =~ s/\%ACTORS\%/$rep/;
+	}
+
+	if ($$string =~ /\%DIRECTORS\%/ ) {
+		my @directors;
+	  foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{cast}->{person} } ) {
+      push (@directors, $_->{name}->{value}) if lc($_->{job}->{value}) eq "director" ;
+ 		}   
+	
+		# we have an array of every director in this movie.  the template defines a max and a join character
+		my $max=$template_xml->{Template}->{Settings}->{Directors}->{MaximumValues}->{value};
+		my $join_char=$template_xml->{Template}->{Settings}->{Directors}->{Separator}->{value};
+
+		# truncate the array if necessary
+		$#directors=($max-1) if $#directors>$max;
+
+		my $rep=join($join_char,@directors);
+		$$string =~ s/\%DIRECTORS\%/$rep/;
+	}
+
+	if ($$string =~ /\%GENRES\%/ ) {
+		my @genres;
+		foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{categories}->{category} } ) {
+      push (@genres, $_->{name}->{value}) if lc($_->{type}->{value}) eq "genre" ;
+    }
+
+    # we have an array of every genre type.  the template defines a max and a join character
+    my $max=$template_xml->{Template}->{Settings}->{Genres}->{MaximumValues}->{value};
+    my $join_char=$template_xml->{Template}->{Settings}->{Genres}->{Separator}->{value};
+
+    # truncate the array if necessary
+    $#genres=($max-1) if $#genres>$max;
+
+    my $rep=join($join_char,@genres);
+    $$string =~ s/\%GENRES\%/$rep/;
+	}
+
 
 	if ( $$string =~ /\%PATH\%/ ) {
 		# fix the source, it will come in Window Path Format, switch it to Unix
@@ -854,8 +972,8 @@ sub generate_moviesheet {
 	my @Files=@_;
 
 	my $parser = XML::TokeParser->new( $template );
-	my $template_obj = new XML::Bare(file => "$Template_Path" );
-	my $template_xml=$template_obj->simple();
+	my $template_obj = new XML::Bare(file => "$Template_Path/Template.xml" );
+	my $template_xml=$template_obj->parse();
 
 	my $moviesheet;
 

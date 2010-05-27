@@ -15,11 +15,6 @@ use XML::Bare;
 use LWP::UserAgent;
 use HTML::Entities;
 
-#
-#$Text::Wrap::initial_tab = "\t";    # Tab before first line
-#$Text::Wrap::subsequent_tab = "";   # All other lines flush left
-#$Text::Wrap::columns = 40;
-
 #---------------------------------------------------------------------------------------------
 #
 # Image Element Functions
@@ -393,6 +388,7 @@ sub AddImageElement {
 	my $token=shift;
 	my $parser=shift;
 	my $Template_Path=shift;
+	my $template_xml=shift;
 	my @Files=@_;
 	my $sourceData;
 	my $geometry=sprintf("%dx%d",$token->attr->{Width},$token->attr->{Height});
@@ -406,7 +402,7 @@ sub AddImageElement {
 		# 2) variable reference to downloaded content
 
 
-				next unless DeTokenize(\$sourceData,$mediainfo,$movie_xml,$Template_Path,@Files);
+				next unless DeTokenize(\$sourceData,$mediainfo,$movie_xml,$Template_Path,$template_xml,@Files);
 
 				if ( $sourceData =~ /^http/i ) {
     			$temp->Read($sourceData);
@@ -603,6 +599,7 @@ sub AddTextElement {
 	my $token=shift;
 	my $parser=shift;
 	my $Template_Path=shift;
+	my $template_xml=shift;
 	my @Files=@_;
 	my $sourceData;
 	my $string;
@@ -624,7 +621,7 @@ sub AddTextElement {
 
 	$string=$token->attr->{Text};
 	if ($string =~ /\%.+\%/) {
-		DeTokenize(\$string,$mediainfo,$movie_xml,$Template_Path,@Files);
+		DeTokenize(\$string,$mediainfo,$movie_xml,$Template_Path,$template_xml,@Files);
 	}
 
 
@@ -857,6 +854,9 @@ sub generate_moviesheet {
 	my @Files=@_;
 
 	my $parser = XML::TokeParser->new( $template );
+	my $template_obj = new XML::Bare(file => "$Template_Path" );
+	my $template_xml=$template_obj->simple();
+
 	my $moviesheet;
 
 	while( defined( my $token = $parser->get_token() ) ){
@@ -875,13 +875,13 @@ sub generate_moviesheet {
 		# add an image element to the canvas
     if ( ($token->tag eq "ImageElement") && ($token->is_start_tag)  ) {
       print "ImageElement\n" if $DEBUG;
-			AddImageElement($movie_xml,$mediainfo,$moviesheet,$token,$parser,$Template_Path,@Files);
+			AddImageElement($movie_xml,$mediainfo,$moviesheet,$token,$parser,$Template_Path,$template_xml,@Files);
     }
 
 		# add a text element to the canvas
     if ( ($token->tag eq "TextElement") && ($token->is_start_tag)  ) {
       print "TextElement\n" if $DEBUG;
-			AddTextElement($movie_xml,$mediainfo,$moviesheet,$token,$parser,$Template_Path,@Files);
+			AddTextElement($movie_xml,$mediainfo,$moviesheet,$token,$parser,$Template_Path,$template_xml,@Files);
     }
 	}
 	$moviesheet->Write("$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{name}->{value}.jpg");

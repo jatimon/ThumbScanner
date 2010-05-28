@@ -401,7 +401,6 @@ sub AddImageElement {
 			my $source=$template_xml->{Template}->{Settings}->{Rating}->{FileName}->{value};
 			next unless DeTokenize(\$source,$mediainfo,$movie_xml,$Template_Path,$template_xml,@Files);
 			my $rating=$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{rating}->{value};
-			$rating=6.5;
     	$temp->Read($source);
 			my ($width, $height) = $temp->Get('columns', 'rows');
 			# single star
@@ -723,9 +722,6 @@ sub DeTokenize {
 
 	print "Detokenizing $$string\n" if $DEBUG;
 
-	print "Template XML -> $template_xml\n" if $DEBUG;
-
-
 	if ($$string =~ /\%COUNTRIES\%/ ) {
 		# determine Country information
 		if (  ref($movie_xml->{OpenSearchDescription}->{movies}->{movie}->{countries}->{country}) =~ /hash/i) {
@@ -750,7 +746,7 @@ sub DeTokenize {
 				$$string =~ s/\{UPPER\}//;
 			}
 			else {
-				print "what do I do with $1?\n";
+				print "I have found a text modifier I don't recognize -- $1?\n";
 			}
 		}
 	}
@@ -850,24 +846,30 @@ sub DeTokenize {
 
 	if ($$string =~ /\%VIDEOFORMAT\%/ ) {
 		my $rep;
+		my $format=$media_info->{Mediainfo}->{File}->{track}->[1]->{Format};
+
+		if ( $format =~ /mpeg-4/i ) { $format="Divx" }
 		foreach (@{$template_xml->{Template}->{VideoFormats}->{VideoFormat} }) {
-			$rep = $_->{Image}->{value} if $media_info->{Mediainfo}->{File}->{track}->[1]->{Codec_ID_Hint} =~  /$_->{Text}->{value}/i;
+			$rep = $_->{Image}->{value} if $format =~  /$_->{Text}->{value}/i;
 		}
 		$$string =~ s/\%VIDEOFORMAT\%/$rep/;
 	}
 
 	if ($$string =~ /\%MEDIAFORMAT\%/ ) {
 		my $rep;
+		my $format=$media_info->{Mediainfo}->{File}->{track}->[0]->{Format};
+
+		if ( $format =~ /Matroska/i ) { $format="mkv" }
+		if ( $format =~ /avi/i ) { $format="mpeg" }
 		foreach (@{$template_xml->{Template}->{MediaFormats}->{MediaFormat} }) {
-			$rep = $_->{Image}->{value} if $media_info->{Mediainfo}->{File}->{track}->[1]->{Format} =~  /$_->{Text}->{value}/i;
+			$rep = $_->{Image}->{value} if $format =~  /$_->{Text}->{value}/i;
 		}
 		$$string =~ s/\%MEDIAFORMAT\%/$rep/;
 	}
 
 	if ($$string =~ /\%RESOLUTION\%/ ) {
-		my $rep=qw/%PATH%\..\Common\video_format\h264.png/;
+		my $rep=qw/%PATH%\..\Common\image_resolution\720.png/;
 		$$string =~ s/\%RESOLUTION\%/$rep/;
-		print "-> RESOLUTION STRING -> $$string\n";
 	}
 
 	if ($$string =~ /\%SOUNDFORMAT\%/ ) {
@@ -888,7 +890,13 @@ sub DeTokenize {
 			else {
 				$text="All Mpeg";
 			}
-		} # elses for other formats
+		} else {
+			if ( $format =~ /AC-3/i ) {
+				$text="AAC Unknown";
+			}
+# still need to add different format versions.  Once I have more data from mediainfo output I can fill this in
+		}
+			# elses for other formats
 		
 		foreach (@{$template_xml->{Template}->{SoundFormats}->{SoundFormat} }) {
 			$rep = $_->{Image}->{value} if $text =~  /$_->{Text}->{value}/i;

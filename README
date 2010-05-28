@@ -29,7 +29,7 @@ Usage
 
 cd to the directory the script is in and execute the following
 
-./rendering_engine.pl </path/to/movie/directory>
+./rendering_engine.pl </path/to/Template.xml> </path/to/movie/directory>
 
 /path/to/movie/directory is the directory that contains the actual movies.
 

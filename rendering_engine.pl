@@ -7,7 +7,7 @@ $|=1;
 use strict;
 use Image::Magick;
 use XML::TokeParser;
-use Data::Dumper;
+#use Data::Dumper;
 use File::Basename;
 use File::Finder;
 use Math::Trig;

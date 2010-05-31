@@ -14,6 +14,19 @@ use Math::Trig;
 use XML::Bare;
 use LWP::UserAgent;
 use HTML::Entities;
+use Getopt::Long;
+
+#---------------------------------------------------------------------------------------------
+#
+# Generic Logging Fuction
+#
+#---------------------------------------------------------------------------------------------
+sub Logger {
+	my $message=shift;
+	my $level=shift;
+
+	print STDERR "[31m$level:[0m\t[33m$message[0m\n";
+}
 
 #---------------------------------------------------------------------------------------------
 #
@@ -307,7 +320,7 @@ sub RoundCorners {
 
 	if ( ($corners =~ /topleft/i ) || ( $corners =~ /All/i ) ) {
 		# make a TopLeft overlay
-		print "TopLeft\n" if $DEBUG;
+		Logger("TopLeft","DEBUG") if $DEBUG;
 		$base_image->Composite(compose=>'dst-atop',image=>$TopLeft,gravity=>'NorthWest');
 	}
 	if ( ( $corners =~ /topright/i ) || ( $corners =~ /All/i ) ) {
@@ -315,7 +328,7 @@ sub RoundCorners {
 		my $TopRight=Image::Magick->new(magick=>'png');
 		$TopRight=$TopLeft->Clone();
 		$TopRight->Flop();
-		print "TopRight\n" if $DEBUG;
+		Logger("TopRight","DEBUG") if $DEBUG;
 		$base_image->Composite(compose=>'dst-atop',image=>$TopRight,gravity=>'NorthEast');
 		undef $TopRight;
   }
@@ -325,7 +338,7 @@ sub RoundCorners {
 		$BottomRight=$TopLeft->Clone();
 		$BottomRight->Flop();
 		$BottomRight->Flip();
-		print "BottomRight\n" if $DEBUG;
+		Logger("BottomRight","DEBUG") if $DEBUG;
 		$base_image->Composite(compose=>'dst-atop',image=>$BottomRight,gravity=>'SouthEast');
 		undef $BottomRight;
   }
@@ -334,7 +347,7 @@ sub RoundCorners {
 		my $BottomLeft=Image::Magick->new(magick=>'png');
 		$BottomLeft=$TopLeft->Clone();
 		$BottomLeft->Flip();
-		print "BottomLeft\n" if $DEBUG;
+		Logger("BottomLeft","DEBUG") if $DEBUG;
 		$base_image->Composite(compose=>'dst-atop',image=>$BottomLeft,gravity=>'SouthWest');
 		undef $BottomLeft;
   }
@@ -443,7 +456,7 @@ sub AddImageElement {
     			$temp->Read($sourceData);
 				}
 				else {
-					print "[31mERROR::[0m  [33mI could not find $sourceData[0m\n";
+					Logger("I could not find $sourceData","ERROR");
 					$temp->Read('xc:none');
 				}
 			}
@@ -461,14 +474,14 @@ sub AddImageElement {
 				# start applying effects to the image.
 				while( defined( $token = $parser->get_token() ) ){
 					if ( ($token->tag =~ /Crop/) && ($token->is_start_tag)  ) { 
-						print "Cropping $sourceData\n" if $DEBUG;
+						Logger("Cropping $sourceData","DEBUG") if $DEBUG;
 						$temp->Crop(width=>$token->attr->{Width},  
 							height=>$token->attr->{Height},  
 							x=>$token->attr->{X},  
 							y=>$token->attr->{Y} );
 					}
 					elsif ( ($token->tag =~ /GlassTable/i) && ($token->is_start_tag)  ) {
-						print "glasstabling $sourceData\n" if $DEBUG;
+						Logger("Glasstabling $sourceData","DEBUG") if $DEBUG;
 						$temp=GlassTable($temp,
 							$token->attr->{ReflectionLocationX},
 							$token->attr->{ReflectionLocationY},
@@ -477,12 +490,12 @@ sub AddImageElement {
 					}
 					elsif ( ($token->tag =~ /AdjustOpacity/i) && ($token->is_start_tag)  ) {
 						my $opacity_percent=($token->attr->{Opacity}/100);
-						print "Adjusting Opacity $sourceData by $opacity_percent \n" if $DEBUG ;
+						Logger("Adjusting Opacity $sourceData by $opacity_percent","DEBUG") if $DEBUG ;
 						# in ImageDraw, opacity ranges from 0 (fully transparent) to 100 (fully Opaque)
 						$temp->Evaluate(value=>$opacity_percent, operator=>'Multiply', channel=>'All');
 					}		
 					elsif ( ($token->tag =~ /RoundCorners/i) && ($token->is_start_tag)  ) {
-						print "Rounding Corners $sourceData\n" if $DEBUG  ;
+						Logger("Rounding Corners $sourceData","DEBUG") if $DEBUG  ;
        			$temp=RoundCorners($temp,
        				$token->attr->{BorderColor},
        				$token->attr->{BorderWidth},
@@ -491,16 +504,16 @@ sub AddImageElement {
 					}
 					elsif ( ($token->tag =~ /AdjustSaturation/i) && ($token->is_start_tag)  ) {
 						my $level=($token->attr->{Level} * 255)/100; # imagemagick saturation is range 0-255 
-						print "Adjusting Saturation level $level $sourceData\n" if $DEBUG ;
+						Logger("Adjusting Saturation level $level $sourceData","DEBUG") if $DEBUG ;
 						$temp->Modulate(saturation=>$level );
 					}
 					elsif ( ($token->tag =~ /AdjustBrightness/i) && ($token->is_start_tag)  ) {
 						my $level=($token->attr->{Level} * 255)/100; # imagemagick brightness is range 0-255 
-						print "Adjusting brightness level $level $sourceData\n" if $DEBUG ;
+						Logger("Adjusting brightness level $level $sourceData","DEBUG") if $DEBUG ;
 						$temp->Modulate(brightness=>$level );
 					}
 					elsif ( ($token->tag =~ /PerspectiveView/i) && ($token->is_start_tag)  ) {
-						print "Adjusting PerspectiveView $sourceData\n" if $DEBUG;
+						Logger("Adjusting PerspectiveView $sourceData","DEBUG") if $DEBUG;
 						$temp=PerspectiveView($temp,
 							$token->attr->{Angle},
 							$token->attr->{Orientation}
@@ -508,13 +521,13 @@ sub AddImageElement {
 					}
 					elsif ( ($token->tag =~ /Rotate/i) && ($token->is_start_tag)  ) {
 						my $degrees=$token->attr->{Angle} * (-1);
-						print "Rotating $sourceData by $degrees degrees\n" if $DEBUG ;
+						Logger("Rotating $sourceData by $degrees degrees","DEBUG") if $DEBUG ;
 						my ($width, $height) = $temp->Get('columns', 'rows');
        			my @points=split(/[ ,]+/,sprintf("0,%d 100 %d",$height,$degrees));
-						print $temp->Distort(method=>'ScaleRotateTranslate','best-fit'=>'False','virtual-pixel'=>'transparent',points=>\@points);
+						$temp->Distort(method=>'ScaleRotateTranslate','best-fit'=>'False','virtual-pixel'=>'transparent',points=>\@points);
 					}
 					elsif ( ($token->tag =~ /DropShadow/i) && ($token->is_start_tag)  ) {
-						print "Adding Shadow to $sourceData\n" if $DEBUG ;
+						Logger("Adding Shadow to $sourceData","DEBUG") if $DEBUG ;
 						$temp=DropShadow($temp,
 							$token->attr->{Angle},
 							$token->attr->{Color},
@@ -524,7 +537,7 @@ sub AddImageElement {
 						);
 					}
 					elsif ( ($token->tag =~ /Skew/i) && ($token->is_start_tag)  ) {
-						print "Skewing $sourceData\n" if $DEBUG ;
+						Logger("Skewing $sourceData","DEBUG") if $DEBUG ;
 						$temp=Skew($temp,
 						$token->attr->{Angle},
 						$token->attr->{ConstrainProportions},
@@ -532,7 +545,7 @@ sub AddImageElement {
 						$token->attr->{Type});
 					}
 					elsif ( ($token->tag =~ /Flip/i) && ($token->is_start_tag)  ) {
-						print "Flipping/Flopping $sourceData\n" if $DEBUG ;
+						Logger("Flipping/Flopping $sourceData","DEBUG") if $DEBUG ;
 						if ( $token->attr->{Type} =~ /Horizontal/i ) { 
 							$temp->Flip();
 						}
@@ -542,7 +555,7 @@ sub AddImageElement {
 					}
 					else {
 						if ( ( $token->tag ) && ( $token->is_start_tag ) ) {
-							print "don't know what to do with " . $token->tag . "\n";;
+							Logger("don't know what to do with " . $token->tag ,"ERROR");
 						}
 					}
 					last if ( ($token->tag =~ /Actions/) );
@@ -586,7 +599,7 @@ sub ParseFont {
 	my $temp=Image::Magick->new();
 	my @fonts=$temp->QueryFont($font_hash{Family});
 
-	print "[31mERROR::[0m  [33mthis font is not found ---- [01m$font_hash{Family}[0m\n" unless defined ($fonts[0]);
+	Logger("this font is not found ---- $font_hash{Family}","ERROR") unless defined ($fonts[0]);
 	undef $temp;
 
 	if (scalar(@font_ary) > 5) {
@@ -726,7 +739,7 @@ sub DeTokenize {
 
 	return 1 unless ($$string =~ /%/) ;
 
-	print "Detokenizing $$string\n" if $DEBUG;
+	Logger ("Detokenizing $$string","DEBUG") if $DEBUG;
 
 	if ($$string =~ /\%COUNTRIES\%/ ) {
 		# determine Country information
@@ -752,7 +765,7 @@ sub DeTokenize {
 				$$string =~ s/\{UPPER\}//;
 			}
 			else {
-				print "I have found a text modifier I don't recognize -- $1?\n";
+				Logger("I have found a text modifier I don't recognize -- $1?","ERROR");
 			}
 		}
 	}
@@ -972,12 +985,12 @@ sub DeTokenize {
 		# fix the source, it will come in Window Path Format, switch it to Unix
 		$$string =~ s/\%PATH\%/$Template_Path/;
 		$$string =~ tr |\\|/|;
-		print "Path expanded -> $$string\n" if $DEBUG;
+		Logger("Path expanded -> $$string","DEBUG") if $DEBUG;
 	}
 
 	if ($$string =~ /\%.+\%/ ) {
 		# add some color so this stands out
-		print "[33mUnable to Detokenize -> $$string [0m \n" if $DEBUG;
+		Logger("Unable to Detokenize -> $$string","ERROR") if $DEBUG;
 		return 0;
 	} 
 	return 1;
@@ -1000,11 +1013,12 @@ sub generate_moviesheet {
 
 	while( defined( my $token = $parser->get_token() ) ){
     if ( ($token->tag =~ /ImageDrawTemplate/ ) && ($token->is_start_tag) ) {
-     	print "---> imagedrawtemplate <---\n";
+     	Logger("Starting Moviesheet Generation","DEBUG");
     }
 
     if ( ($token->tag eq "Canvas") && ($token->is_start_tag) ) {
-     	printf ("create a canvas of width=%d and height=%d\n",$token->attr->{Width},$token->attr->{Height}) if $DEBUG;
+     	my $msg=sprintf("create a canvas of width=%d and height=%d\n",$token->attr->{Width},$token->attr->{Height});
+		 	Logger($msg,"DEBUG")if $DEBUG;
 		# Create a Canvas
 		my $geometry=sprintf("%dx%d",$token->attr->{Width},$token->attr->{Height});
 		$moviesheet=Image::Magick->new(size=>$geometry); # invoke new image
@@ -1013,13 +1027,13 @@ sub generate_moviesheet {
 
 		# add an image element to the canvas
     if ( ($token->tag eq "ImageElement") && ($token->is_start_tag)  ) {
-      print "ImageElement\n" if $DEBUG;
+      Logger("ImageElement","INFO") if $DEBUG;
 			AddImageElement($movie_xml,$mediainfo,$moviesheet,$token,$parser,$Template_Path,$template_xml,@Files);
     }
 
 		# add a text element to the canvas
     if ( ($token->tag eq "TextElement") && ($token->is_start_tag)  ) {
-      print "TextElement\n" if $DEBUG;
+      Logger ("TextElement","INFO") if $DEBUG;
 			AddTextElement($movie_xml,$mediainfo,$moviesheet,$token,$parser,$Template_Path,$template_xml,@Files);
     }
 	}
@@ -1094,8 +1108,7 @@ sub GetTmdbID {
 	my $xml_root=$xml_ob->simple();
 
 	if ( $xml_root->{OpenSearchDescription}->{'opensearch:totalResults'} > 1 ) {
-		print "WARNING: Multiply movie entries for this title\n" ;
-		print "\tthis can be fixed by adding the string tmdb_id=<the ID> to the filename\n\t i.e. 21.avi becomes 21tmdb=8065.avi to ensure we get the Kevin Spacey one\n";
+		Logger ("Multiple movie entries for this title\n\tthis can be fixed by adding the string tmdb_id=<the ID> to the filename\n\ti.e. 21.avi becomes 21tmdb=8065.avi to ensure we get the Kevin Spacey one","WARN");
 		$tmdb_id=$xml_root->{OpenSearchDescription}->{movies}->{movie}->[0]->{id};
 	}
 	else {
@@ -1177,7 +1190,7 @@ closedir DIR;
 
 foreach (@movies) {
 	chomp;
-	print "Creating a moviesheet for $_\n";
+	Logger("Creating a moviesheet for $_","INFO");
 	my $actual_file_name = $_;
 	my $tmdb_id=GetTmdbID($actual_file_name);
 	# get the media_info hash
@@ -1191,9 +1204,9 @@ foreach (@movies) {
  		$moviesheet=generate_moviesheet($xml_root, $mediainfo, $template, $Template_Path, @names);
 	}
 	else {
-		print "unable to find movie data for $_\n";
+		Logger("unable to find movie data for $_","ERROR");
 	}
-	print "Writing ${_}_sheet.jpg\n" ;
+	Logger("Writing ${_}_sheet.jpg","INFO") ;
 	$moviesheet->Write("${_}_sheet.jpg");
 
 }

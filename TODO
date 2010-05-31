@@ -5,5 +5,7 @@
 - figure out subtitles.
 - add more than just one source for movie information.
 - command line flags for debug and conf file over ride.
-- debug
+	- debugging option and level
+	- Template file
+	- movie directory
 - perhaps a script to add fonts to imagemagick

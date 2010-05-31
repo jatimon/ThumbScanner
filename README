@@ -47,3 +47,11 @@ File::Finder
 Math::Trig
 
 - Template files.  It is built against Dribblers Templates.
+
+Fonts
+=====
+
+Sadly Linux hasn't fully matured with respect to fonts and font availablility.
+Some twiddling needs to be done to ensure that windows fonts are available for use by the rendering engine and ImageMagick in general.
+
+TODO: write a script to install the ms fonts and add them to imagemagick.....

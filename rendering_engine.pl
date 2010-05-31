@@ -445,7 +445,13 @@ sub AddImageElement {
 		else {
 			next unless DeTokenize(\$sourceData,$mediainfo,$movie_xml,$Template_Path,$template_xml,@Files);
 
+			if ($sourceData eq "") {
+				Logger("I was unable to find information on the web for this movie","ERROR");
+				next;
+			}
+
 			if ( $sourceData =~ /^http/i ) {
+				Logger("grabbing $sourceData from the web","INFO") if $DEBUG;
     		$temp->Read($sourceData);
 			}
 			else {
@@ -778,32 +784,32 @@ sub DeTokenize {
 		}
 	}
 
-	if ($$string =~ /\%DURATIONTEXT\%/ ) {
+	if ($$string =~ /\%DURATIONTEXT\%/ and (ref($media_info->{Mediainfo}->{File}->{track})=~/array/ )) {
 		$$string =~ s/\%DURATIONTEXT\%/$media_info->{Mediainfo}->{File}->{track}->[1]->{Duration}/;
 	}
 	
-	if ($$string =~ /\%FRAMERATETEXT\%/ ) {
+	if ($$string =~ /\%FRAMERATETEXT\%/ and (ref($media_info->{Mediainfo}->{File}->{track})=~/array/ ) ) {
 		$$string =~ s/\%FRAMERATETEXT\%/$media_info->{Mediainfo}->{File}->{track}->[1]->{Frame_rate}/;
 	}
 
-	if ($$string =~ /\%ASPECTRATIOTEXT\%/ ) {
+	if ($$string =~ /\%ASPECTRATIOTEXT\%/  and (ref($media_info->{Mediainfo}->{File}->{track})=~/array/ )) {
 		$$string =~ s/\%ASPECTRATIOTEXT\%/$media_info->{Mediainfo}->{File}->{track}->[1]->{Display_aspect_ratio}/;
 	}
 
-	if ($$string =~ /\%VIDEOBITRATETEXT\%/ ) {
+	if ($$string =~ /\%VIDEOBITRATETEXT\%/ and (ref($media_info->{Mediainfo}->{File}->{track})=~/array/ ) ) {
 		$$string =~ s/\%VIDEOBITRATETEXT\%/$media_info->{Mediainfo}->{File}->{track}->[1]->{Bit_rate}/;
 	}
 
-	if ($$string =~ /\%AUDIOCHANNELSTEXT\%/ ) {
+	if ($$string =~ /\%AUDIOCHANNELSTEXT\%/ and (ref($media_info->{Mediainfo}->{File}->{track})=~/array/ ) ) {
 		$$string =~ s/\%AUDIOCHANNELSTEXT\%/$media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_}/;
 		$$string =~ s/(\d+) .*$/$1 ch/;
 	}
 
-	if ($$string =~ /\%AUDIOBITRATETEXT\%/ ) {
+	if ($$string =~ /\%AUDIOBITRATETEXT\%/ and (ref($media_info->{Mediainfo}->{File}->{track})=~/array/ ) ) {
 		$$string =~ s/\%AUDIOBITRATETEXT\%/$media_info->{Mediainfo}->{File}->{track}->[2]->{Bit_rate}/;
 	}
 
-	if ($$string =~ /\%FILESIZETEXT\%/ ) {
+	if ($$string =~ /\%FILESIZETEXT\%/ and (ref($media_info->{Mediainfo}->{File}->{track})=~/array/ ) ) {
 		$$string =~ s/\%FILESIZETEXT\%/$media_info->{Mediainfo}->{File}->{track}->[0]->{File_size}/;
 	}
 
@@ -871,7 +877,7 @@ sub DeTokenize {
     }
   }
 
-	if ($$string =~ /\%VIDEOFORMAT\%/ ) {
+	if ($$string =~ /\%VIDEOFORMAT\%/ and (ref($media_info->{Mediainfo}->{File}->{track})=~/array/ ) ) {
 		my $rep;
 		my $format=$media_info->{Mediainfo}->{File}->{track}->[1]->{Format};
 
@@ -882,7 +888,7 @@ sub DeTokenize {
 		$$string =~ s/\%VIDEOFORMAT\%/$rep/;
 	}
 
-	if ($$string =~ /\%MEDIAFORMAT\%/ ) {
+	if ($$string =~ /\%MEDIAFORMAT\%/ and (ref($media_info->{Mediainfo}->{File}->{track})=~/array/ ) ) {
 		my $rep;
 		my $format=$media_info->{Mediainfo}->{File}->{track}->[0]->{Format};
 
@@ -899,7 +905,7 @@ sub DeTokenize {
 		$$string =~ s/\%RESOLUTION\%/$rep/;
 	}
 
-	if ($$string =~ /\%SOUNDFORMAT\%/ ) {
+	if ($$string =~ /\%SOUNDFORMAT\%/ and (ref($media_info->{Mediainfo}->{File}->{track})=~/array/ ) ) {
 		# this is a bit more involved given the permutations of media formats
 		my $format=$media_info->{Mediainfo}->{File}->{track}->[2]->{Format};
 		my $format_version=$media_info->{Mediainfo}->{File}->{track}->[2]->{Format_version};
@@ -1115,7 +1121,7 @@ sub GetTmdbID {
 # passed in the file name, clean it and return the tmdb_id
 	my $file_name = shift;
 	my $tmdb_id;
-
+	
 	if ($file_name =~ /tmdb_id=(.*)\..*$/) {
 		return ($1);
 	}
@@ -1128,6 +1134,7 @@ sub GetTmdbID {
 	$ua->timeout(10);
 	$ua->env_proxy;
 
+	Logger("http://api.themoviedb.org/2.1/Movie.search/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$movie_name","DEBUG") if $DEBUG;
 	my $response = $ua->get("http://api.themoviedb.org/2.1/Movie.search/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$movie_name");
 	my $xml_ob = new XML::Bare(text => $response->decoded_content );
 	my $xml_root=$xml_ob->simple();
@@ -1151,6 +1158,7 @@ sub GetMediaDetails {
 	$ua->timeout(10);
 	$ua->env_proxy;
 
+	Logger("http://api.themoviedb.org/2.1/Movie.getInfo/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$tmdb_id","DEBUG") if $DEBUG;
 	my $response = $ua->get("http://api.themoviedb.org/2.1/Movie.getInfo/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$tmdb_id");
 	my $xml_data=decode_entities($response->decoded_content);
 	my $xml_ob = new XML::Bare(text => $xml_data );
@@ -1165,11 +1173,14 @@ sub GetMediaInfo {
 
 	# I really hate doing it this way.  At some point it would be great to talk direct to the library
 	# some effort should be put into ensuring that $movie_name is safe
-  open my $FD, "mediainfo --Output=XML '$movie_name' |" or die "unable to open $movie_name";
+	my $cmd=sprintf("mediainfo --Output=XML \"%s\" |",$movie_name);
+	#open my $FD, "mediainfo --Output=XML '$movie_name' |" or die "unable to open $movie_name";
+  open my $FD, $cmd or die "unable to open $movie_name";
   my @xml=<$FD>;
   close $FD;
 
   my $ob = new XML::Bare(text => "@xml" );
+
   return $ob->simple();
 }
 

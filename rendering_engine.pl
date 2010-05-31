@@ -764,6 +764,14 @@ sub DeTokenize {
 				$$string=uc($$string);
 				$$string =~ s/\{UPPER\}//;
 			}
+			elsif ( $$string eq "LOWER" ) {
+				$$string=lc($$string);
+				$$string =~ s/\{LOWER\}//;
+			}
+			elsif ( $$string eq "TITLECASE" ) {
+				$$string=ucfirst($$string);
+				$$string =~ s/\{TITLECASE\}//;
+			}
 			else {
 				Logger("I have found a text modifier I don't recognize -- $1?","ERROR");
 			}

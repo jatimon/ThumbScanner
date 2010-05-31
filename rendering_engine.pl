@@ -1005,6 +1005,23 @@ sub DeTokenize {
 
 }
 
+sub grab_thumbnail {
+# grab a thumbnail image for the movie
+	my $movie_xml=shift;
+
+  my @covers;
+	my $thumbnail;
+  # grab the cover image from themoviedb
+  foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
+    push ( @covers, $_->{url}->{value}) if ( ($_->{size}->{value} =~ /mid/i) && ($_->{type}->{value} =~ /poster/i) );
+  }
+
+	$thumbnail=Image::Magick->new(magick=>'png');
+	$thumbnail->Read($covers[0]);
+
+	return $thumbnail;
+}
+
 sub generate_moviesheet {
 # takes as input a movie data hash, a template file and the filenamed array
 	my $movie_xml=shift;
@@ -1191,6 +1208,7 @@ my @names = File::Finder->in("$Template_Path/..");
 our $DEBUG=0;
 
 my $moviesheet;
+my $thumbnail;
 
 opendir DIR, $movie_directory || die "Unable to open Movie Directory";
 	my @movies=grep{ /^\w+/ && !/^\.+/ && !/jpg/ && -f "$movie_directory/$_" } readdir(DIR);
@@ -1210,11 +1228,14 @@ foreach (@movies) {
 		my $xml_root=GetMediaDetails($tmdb_id);
 		# start the movie sheet generation
  		$moviesheet=generate_moviesheet($xml_root, $mediainfo, $template, $Template_Path, @names);
+		Logger("Writing ${_}_sheet.jpg","INFO") ;
+		$moviesheet->Write("$movie_directory/${_}_sheet.jpg");
+		$thumbnail=grab_thumbnail($xml_root);
+		Logger("Writing thumbnail","INFO") ;
+		$thumbnail->Write("$movie_directory/$actual_file_name.jpg");
 	}
 	else {
 		Logger("unable to find movie data for $_","ERROR");
 	}
-	Logger("Writing ${_}_sheet.jpg","INFO") ;
-	$moviesheet->Write("${_}_sheet.jpg");
 
 }

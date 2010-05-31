@@ -428,7 +428,6 @@ sub AddImageElement {
 
 			$temp=$rating_image;
 
-#$temp->Resize(width=>$width*$rating, height=>$height) ;
 		}
 		else {
 			next unless DeTokenize(\$sourceData,$mediainfo,$movie_xml,$Template_Path,$template_xml,@Files);
@@ -437,8 +436,8 @@ sub AddImageElement {
     		$temp->Read($sourceData);
 			}
 			else {
-    		my @newSource = grep {/$sourceData/i} @Files;
-    		$sourceData=$newSource[0];
+			my @newSource = grep {/$sourceData/i} @Files;
+				$sourceData=$newSource[0] if $newSource[0] ne '';
     		$temp->Read($sourceData);
 			}
 			$temp->Resize(width=>$token->attr->{Width}, height=>$token->attr->{Height}) ;
@@ -960,6 +959,7 @@ sub DeTokenize {
 		# fix the source, it will come in Window Path Format, switch it to Unix
 		$$string =~ s/\%PATH\%/$Template_Path/;
 		$$string =~ tr |\\|/|;
+		print "Path expanded -> $$string\n" if $DEBUG;
 	}
 
 	if ($$string =~ /\%.+\%/ ) {

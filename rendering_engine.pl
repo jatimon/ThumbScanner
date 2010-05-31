@@ -7,7 +7,7 @@ $|=1;
 use strict;
 use Image::Magick;
 use XML::TokeParser;
-#use Data::Dumper;
+use Data::Dumper;
 use File::Basename;
 use File::Finder;
 use Math::Trig;
@@ -438,7 +438,14 @@ sub AddImageElement {
 			else {
 			my @newSource = grep {/$sourceData/i} @Files;
 				$sourceData=$newSource[0] if $newSource[0] ne '';
-    		$temp->Read($sourceData);
+				# check to make sure image file actually exists.  Otherwise Alert user and read xc:none
+				if (-e $sourceData) {
+    			$temp->Read($sourceData);
+				}
+				else {
+					print "[31mERROR::[0m  [33mI could not find $sourceData[0m\n";
+					$temp->Read('xc:none');
+				}
 			}
 			$temp->Resize(width=>$token->attr->{Width}, height=>$token->attr->{Height}) ;
 		}
@@ -579,7 +586,7 @@ sub ParseFont {
 	my $temp=Image::Magick->new();
 	my @fonts=$temp->QueryFont($font_hash{Family});
 
-	print "[31mWHOA THERE:[0m  [33mthis font is not found ---- [01m$font_hash{Family}[0m\n" unless defined ($fonts[0]);
+	print "[31mERROR::[0m  [33mthis font is not found ---- [01m$font_hash{Family}[0m\n" unless defined ($fonts[0]);
 	undef $temp;
 
 	if (scalar(@font_ary) > 5) {
@@ -939,9 +946,15 @@ sub DeTokenize {
 
 	if ($$string =~ /\%GENRES\%/ ) {
 		my @genres;
-		foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{categories}->{category} } ) {
-      push (@genres, $_->{name}->{value}) if lc($_->{type}->{value}) eq "genre" ;
-    }
+
+		if (  ref($movie_xml->{OpenSearchDescription}->{movies}->{movie}->{categories}->{category} ) =~ /hash/i) {
+      push (@genres, $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{categories}->{category}->{name}->{value}) if lc($movie_xml->{OpenSearchDescription}->{movies}->{movie}->{categories}->{category}->{name}->{value}) eq "genre" ;
+		}
+		else {
+			foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{categories}->{category} } ) {
+      	push (@genres, $_->{name}->{value}) if lc($_->{type}->{value}) eq "genre" ;
+    	}
+		}
 
     # we have an array of every genre type.  the template defines a max and a join character
     my $max=$template_xml->{Template}->{Settings}->{Genres}->{MaximumValues}->{value};
@@ -964,7 +977,7 @@ sub DeTokenize {
 
 	if ($$string =~ /\%.+\%/ ) {
 		# add some color so this stands out
-		print "[33mUnable to Detokenize -> $$string [0m \n";
+		print "[33mUnable to Detokenize -> $$string [0m \n" if $DEBUG;
 		return 0;
 	} 
 	return 1;
@@ -1010,7 +1023,7 @@ sub generate_moviesheet {
 			AddTextElement($movie_xml,$mediainfo,$moviesheet,$token,$parser,$Template_Path,$template_xml,@Files);
     }
 	}
-	$moviesheet->Write("$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{name}->{value}.jpg");
+	return $moviesheet;
 }
 
 #---------------------------------------------------------------------------------------------
@@ -1082,6 +1095,7 @@ sub GetTmdbID {
 
 	if ( $xml_root->{OpenSearchDescription}->{'opensearch:totalResults'} > 1 ) {
 		print "WARNING: Multiply movie entries for this title\n" ;
+		print "\tthis can be fixed by adding the string tmdb_id=<the ID> to the filename\n\t i.e. 21.avi becomes 21tmdb=8065.avi to ensure we get the Kevin Spacey one\n";
 		$tmdb_id=$xml_root->{OpenSearchDescription}->{movies}->{movie}->[0]->{id};
 	}
 	else {
@@ -1155,12 +1169,15 @@ my @names = File::Finder->in("$Template_Path/..");
 # generic debugging information.  probably replaced later with command line argument
 our $DEBUG=0;
 
+my $moviesheet;
+
 opendir DIR, $movie_directory || die "Unable to open Movie Directory";
 	my @movies=grep{ /^\w+/ && !/^\.+/ && !/jpg/ && -f "$movie_directory/$_" } readdir(DIR);
 closedir DIR;
 
 foreach (@movies) {
 	chomp;
+	print "Creating a moviesheet for $_\n";
 	my $actual_file_name = $_;
 	my $tmdb_id=GetTmdbID($actual_file_name);
 	# get the media_info hash
@@ -1171,9 +1188,12 @@ foreach (@movies) {
 		# get more detailed information using the Movie.getInfo call
 		my $xml_root=GetMediaDetails($tmdb_id);
 		# start the movie sheet generation
- 		generate_moviesheet($xml_root, $mediainfo, $template, $Template_Path, @names);
+ 		$moviesheet=generate_moviesheet($xml_root, $mediainfo, $template, $Template_Path, @names);
 	}
 	else {
 		print "unable to find movie data for $_\n";
 	}
+	print "Writing ${_}_sheet.jpg\n" ;
+	$moviesheet->Write("${_}_sheet.jpg");
+
 }

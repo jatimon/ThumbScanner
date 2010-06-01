@@ -1,10 +1,10 @@
-#!/usr/bin/perl 
+#!/usr/bin/env perl
+# imagemagick redering converter from thumbgens xml files
 
 $|=1;
 
-# imagemagick redering converter from thumbgens xml files
-
 use strict;
+use Getopt::Long;
 use Image::Magick;
 use XML::TokeParser;
 use Data::Dumper;
@@ -22,10 +22,41 @@ use Getopt::Long;
 #
 #---------------------------------------------------------------------------------------------
 sub Logger {
+
+# Log messages to output.  Below are the accepted logging levels, in decreasing value
+#
+# $level defines the level of the message
+# $config_options->{LEVEL} is the level the user would like logging at
+# all message at or above the user set level will be displayed
+# CRIT will always display.
+#     CRIT       critical conditions
+#     ERROR      error conditions
+#     WARN	     warning conditions
+#     NOTICE     normal, but significant, condition
+#     INFO       informational message
+#     DEBUG      debug-level message
+	my $config_options=shift;
 	my $message=shift;
 	my $level=shift;
 
-	print STDERR "[31m$level:[0m\t[33m$message[0m\n";
+	my %color=( 'DEBUG' 	=> "[35m",	 			# magenta
+							'INFO'		=> "[37m",				# white
+							'NOTICE'	=> "[36m",				# cyan
+							'WARN'		=> "[32m",				# green
+							'ERROR'		=> "[31m",				# red
+							'CRIT'		=> "[41;37m",			# red background, white text
+			);
+	my %message_level=('DEBUG'   => 0,
+       					     'INFO'    => 1,
+              			 'NOTICE'  => 2,
+              			 'WARN'    => 3,
+              			 'ERROR'   => 4,
+              			 'CRIT'    => 5,
+      );
+
+	if ($message_level{$config_options->{DEBUG}} <= $message_level{$level}){
+		print STDERR "$color{$level}$level:[0m\t[33m$message[0m\n";
+	}
 }
 
 #---------------------------------------------------------------------------------------------
@@ -40,7 +71,7 @@ sub DropShadow {
 # then position it according to distance and angle and composite the original on top
 # yay math.
 
-	use vars qw($DEBUG);
+	my $config_options=shift;
 	my $base_image=shift;
 	my $true_angle=shift;
 	my $color=shift;
@@ -110,7 +141,7 @@ sub DropShadow {
 
 sub GlassTable {
 # emulate the glasstable effect with ImageMagick
-	use vars qw($DEBUG);
+	my $config_options=shift;
 	my $base_image=shift;
 	my $x_offset=shift;
 	my $y_offset=shift;
@@ -166,7 +197,7 @@ sub Skew{
 # of course ImageMagick is more generic.  We can pull off an image transform by simply specifying 
 # 4 starting cordinates and their corresponding destination coordinates
 
-	use vars qw($DEBUG);
+	my $config_options=shift;
 	my $orig_image=shift;
 	my $angle=shift;
 	my $contrainProportions=shift;
@@ -276,6 +307,7 @@ sub Skew{
 sub PerspectiveView {
 # create a perspectiveView of the passed in image
 # initially this looks to be a trapezoid distort
+	my $config_options=shift;
 	my $orig_image=shift;
 	my $angle=shift;
 	my $orientation=shift;
@@ -287,12 +319,12 @@ sub PerspectiveView {
 	else {
 		$angle=abs($angle)/2;
 	}
-	return Skew($orig_image, $angle, "True", "Vertical", "Trapezoid");
+	return Skew($config_options,$orig_image, $angle, "True", "Vertical", "Trapezoid");
 }
 
 
 sub RoundCorners {
-	use vars qw($DEBUG);
+	my $config_options=shift;
 	my $orig_image=shift;
 	my $border_color=shift;
 	my $border_width=shift;
@@ -320,7 +352,7 @@ sub RoundCorners {
 
 	if ( ($corners =~ /topleft/i ) || ( $corners =~ /All/i ) ) {
 		# make a TopLeft overlay
-		Logger("TopLeft","DEBUG") if $DEBUG;
+		Logger($config_options,"TopLeft","DEBUG") if $config_options->{DEBUG};
 		$base_image->Composite(compose=>'dst-atop',image=>$TopLeft,gravity=>'NorthWest');
 	}
 	if ( ( $corners =~ /topright/i ) || ( $corners =~ /All/i ) ) {
@@ -328,7 +360,7 @@ sub RoundCorners {
 		my $TopRight=Image::Magick->new(magick=>'png');
 		$TopRight=$TopLeft->Clone();
 		$TopRight->Flop();
-		Logger("TopRight","DEBUG") if $DEBUG;
+		Logger($config_options,"TopRight","DEBUG") if $config_options->{DEBUG};
 		$base_image->Composite(compose=>'dst-atop',image=>$TopRight,gravity=>'NorthEast');
 		undef $TopRight;
   }
@@ -338,7 +370,7 @@ sub RoundCorners {
 		$BottomRight=$TopLeft->Clone();
 		$BottomRight->Flop();
 		$BottomRight->Flip();
-		Logger("BottomRight","DEBUG") if $DEBUG;
+		Logger($config_options,"BottomRight","DEBUG") if $config_options->{DEBUG};
 		$base_image->Composite(compose=>'dst-atop',image=>$BottomRight,gravity=>'SouthEast');
 		undef $BottomRight;
   }
@@ -347,7 +379,7 @@ sub RoundCorners {
 		my $BottomLeft=Image::Magick->new(magick=>'png');
 		$BottomLeft=$TopLeft->Clone();
 		$BottomLeft->Flip();
-		Logger("BottomLeft","DEBUG") if $DEBUG;
+		Logger($config_options,"BottomLeft","DEBUG") if $config_options->{DEBUG};
 		$base_image->Composite(compose=>'dst-atop',image=>$BottomLeft,gravity=>'SouthWest');
 		undef $BottomLeft;
   }
@@ -393,8 +425,7 @@ sub GetColor {
 sub AddImageElement {
 # take the base image and laydown a composite on top
 # all of the composite information will be in the composite_data variable
-	use vars qw($DEBUG);
-
+	my $config_options=shift;
 	my $movie_xml=shift;
 	my $mediainfo=shift;
 	my $base_image=shift;
@@ -405,14 +436,13 @@ sub AddImageElement {
 	my @Files=@_;
 	my $sourceData;
 	my $geometry=sprintf("%dx%d",$token->attr->{Width},$token->attr->{Height});
-#my $temp=Image::Magick->new(geometry=>$geometry);
 	my $temp=Image::Magick->new(magick=>'png');
 		
 		$sourceData=$token->attr->{SourceData};
 		if ( $sourceData =~ /\%RATINGSTARS\%/ ) {
 			# this token is part of the Settings token in the template.xml file
 			my $source=$template_xml->{Template}->{Settings}->{Rating}->{FileName}->{value};
-			next unless DeTokenize(\$source,$mediainfo,$movie_xml,$Template_Path,$template_xml,@Files);
+			next unless DeTokenize($config_options,\$source,$mediainfo,$movie_xml,$Template_Path,$template_xml,@Files);
 			my $rating=$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{rating}->{value};
     	$temp->Read($source);
 			my ($width, $height) = $temp->Get('columns', 'rows');
@@ -443,15 +473,15 @@ sub AddImageElement {
 
 		}
 		else {
-			next unless DeTokenize(\$sourceData,$mediainfo,$movie_xml,$Template_Path,$template_xml,@Files);
+			next unless DeTokenize($config_options,\$sourceData,$mediainfo,$movie_xml,$Template_Path,$template_xml,@Files);
 
 			if ($sourceData eq "") {
-				Logger("I was unable to find information on the web for this movie","ERROR");
+				Logger($config_options,"I was unable to find information on the web for this movie","CRIT");
 				next;
 			}
 
 			if ( $sourceData =~ /^http/i ) {
-				Logger("grabbing $sourceData from the web","INFO") if $DEBUG;
+				Logger($config_options,"grabbing $sourceData from the web","INFO") if $config_options->{DEBUG};
     		$temp->Read($sourceData);
 			}
 			else {
@@ -462,7 +492,7 @@ sub AddImageElement {
     			$temp->Read($sourceData);
 				}
 				else {
-					Logger("I could not find $sourceData","ERROR");
+					Logger($config_options,"I could not find $sourceData","CRIT");
 					$temp->Read('xc:none');
 				}
 			}
@@ -480,15 +510,15 @@ sub AddImageElement {
 				# start applying effects to the image.
 				while( defined( $token = $parser->get_token() ) ){
 					if ( ($token->tag =~ /Crop/) && ($token->is_start_tag)  ) { 
-						Logger("Cropping $sourceData","DEBUG") if $DEBUG;
+						Logger($config_options,"Cropping $sourceData","DEBUG") if $config_options->{DEBUG};
 						$temp->Crop(width=>$token->attr->{Width},  
 							height=>$token->attr->{Height},  
 							x=>$token->attr->{X},  
 							y=>$token->attr->{Y} );
 					}
 					elsif ( ($token->tag =~ /GlassTable/i) && ($token->is_start_tag)  ) {
-						Logger("Glasstabling $sourceData","DEBUG") if $DEBUG;
-						$temp=GlassTable($temp,
+						Logger($config_options,"Glasstabling $sourceData","DEBUG") if $config_options->{DEBUG};
+						$temp=GlassTable($config_options,$temp,
 							$token->attr->{ReflectionLocationX},
 							$token->attr->{ReflectionLocationY},
 							$token->attr->{ReflectionOpacity}, 
@@ -496,13 +526,13 @@ sub AddImageElement {
 					}
 					elsif ( ($token->tag =~ /AdjustOpacity/i) && ($token->is_start_tag)  ) {
 						my $opacity_percent=($token->attr->{Opacity}/100);
-						Logger("Adjusting Opacity $sourceData by $opacity_percent","DEBUG") if $DEBUG ;
+						Logger($config_options,"Adjusting Opacity $sourceData by $opacity_percent","DEBUG") if $config_options->{DEBUG} ;
 						# in ImageDraw, opacity ranges from 0 (fully transparent) to 100 (fully Opaque)
 						$temp->Evaluate(value=>$opacity_percent, operator=>'Multiply', channel=>'All');
 					}		
 					elsif ( ($token->tag =~ /RoundCorners/i) && ($token->is_start_tag)  ) {
-						Logger("Rounding Corners $sourceData","DEBUG") if $DEBUG  ;
-       			$temp=RoundCorners($temp,
+						Logger($config_options,"Rounding Corners $sourceData","DEBUG") if $config_options->{DEBUG}  ;
+       			$temp=RoundCorners($config_options,$temp,
        				$token->attr->{BorderColor},
        				$token->attr->{BorderWidth},
        				$token->attr->{Roundness},
@@ -510,31 +540,31 @@ sub AddImageElement {
 					}
 					elsif ( ($token->tag =~ /AdjustSaturation/i) && ($token->is_start_tag)  ) {
 						my $level=($token->attr->{Level} * 255)/100; # imagemagick saturation is range 0-255 
-						Logger("Adjusting Saturation level $level $sourceData","DEBUG") if $DEBUG ;
+						Logger($config_options,"Adjusting Saturation level $level $sourceData","DEBUG") if $config_options->{DEBUG} ;
 						$temp->Modulate(saturation=>$level );
 					}
 					elsif ( ($token->tag =~ /AdjustBrightness/i) && ($token->is_start_tag)  ) {
 						my $level=($token->attr->{Level} * 255)/100; # imagemagick brightness is range 0-255 
-						Logger("Adjusting brightness level $level $sourceData","DEBUG") if $DEBUG ;
+						Logger($config_options,"Adjusting brightness level $level $sourceData","DEBUG") if $config_options->{DEBUG} ;
 						$temp->Modulate(brightness=>$level );
 					}
 					elsif ( ($token->tag =~ /PerspectiveView/i) && ($token->is_start_tag)  ) {
-						Logger("Adjusting PerspectiveView $sourceData","DEBUG") if $DEBUG;
-						$temp=PerspectiveView($temp,
+						Logger($config_options,"Adjusting PerspectiveView $sourceData","DEBUG") if $config_options->{DEBUG};
+						$temp=PerspectiveView($config_options,$temp,
 							$token->attr->{Angle},
 							$token->attr->{Orientation}
 						);	
 					}
 					elsif ( ($token->tag =~ /Rotate/i) && ($token->is_start_tag)  ) {
 						my $degrees=$token->attr->{Angle} * (-1);
-						Logger("Rotating $sourceData by $degrees degrees","DEBUG") if $DEBUG ;
+						Logger($config_options,"Rotating $sourceData by $degrees degrees","DEBUG") if $config_options->{DEBUG} ;
 						my ($width, $height) = $temp->Get('columns', 'rows');
        			my @points=split(/[ ,]+/,sprintf("0,%d 100 %d",$height,$degrees));
 						$temp->Distort(method=>'ScaleRotateTranslate','best-fit'=>'False','virtual-pixel'=>'transparent',points=>\@points);
 					}
 					elsif ( ($token->tag =~ /DropShadow/i) && ($token->is_start_tag)  ) {
-						Logger("Adding Shadow to $sourceData","DEBUG") if $DEBUG ;
-						$temp=DropShadow($temp,
+						Logger($config_options,"Adding Shadow to $sourceData","DEBUG") if $config_options->{DEBUG} ;
+						$temp=DropShadow($config_options,$temp,
 							$token->attr->{Angle},
 							$token->attr->{Color},
 							$token->attr->{Distance},
@@ -543,15 +573,15 @@ sub AddImageElement {
 						);
 					}
 					elsif ( ($token->tag =~ /Skew/i) && ($token->is_start_tag)  ) {
-						Logger("Skewing $sourceData","DEBUG") if $DEBUG ;
-						$temp=Skew($temp,
+						Logger($config_options,"Skewing $sourceData","DEBUG") if $config_options->{DEBUG} ;
+						$temp=Skew($config_options,$temp,
 						$token->attr->{Angle},
 						$token->attr->{ConstrainProportions},
 						$token->attr->{Orientation}, 
 						$token->attr->{Type});
 					}
 					elsif ( ($token->tag =~ /Flip/i) && ($token->is_start_tag)  ) {
-						Logger("Flipping/Flopping $sourceData","DEBUG") if $DEBUG ;
+						Logger($config_options,"Flipping/Flopping $sourceData","DEBUG") if $config_options->{DEBUG} ;
 						if ( $token->attr->{Type} =~ /Horizontal/i ) { 
 							$temp->Flip();
 						}
@@ -561,7 +591,7 @@ sub AddImageElement {
 					}
 					else {
 						if ( ( $token->tag ) && ( $token->is_start_tag ) ) {
-							Logger("don't know what to do with " . $token->tag ,"ERROR");
+							Logger($config_options,"don't know what to do with " . $token->tag ,"DEBUG")if $config_options->{DEBUG};
 						}
 					}
 					last if ( ($token->tag =~ /Actions/) );
@@ -586,7 +616,7 @@ sub ParseFont {
 # Font Size and Unit
 # The font size value will depend on the font unit which can be set to Point, Inch, Millimeter, or Pixel. 
 
-	use vars qw($DEBUG);
+	my $config_options=shift;
 	my $font=shift;
 
 	# is this a basic font line or one with bold/italic/underline/strikeout
@@ -605,7 +635,7 @@ sub ParseFont {
 	my $temp=Image::Magick->new();
 	my @fonts=$temp->QueryFont($font_hash{Family});
 
-	Logger("this font is not found ---- $font_hash{Family}","ERROR") unless defined ($fonts[0]);
+	Logger($config_options,"this font is not found ---- $font_hash{Family}","CRIT") unless defined ($fonts[0]);
 	undef $temp;
 
 	if (scalar(@font_ary) > 5) {
@@ -645,7 +675,7 @@ sub AddTextElement {
 # 1) those with effect i.e. Action
 # 2) those without
 
-	use vars qw($DEBUG);
+	my $config_options=shift;
 	my $movie_xml=shift;
 	my $mediainfo=shift;
 	my $base_image=shift;
@@ -669,12 +699,12 @@ sub AddTextElement {
 	# create the text element image contents
 	my $forecolor=GetColor($token->attr->{ForeColor});
 	my $strokecolor=GetColor($token->attr->{StrokeColor});
-	my $font_hash=ParseFont($token->attr->{Font});
+	my $font_hash=ParseFont($config_options,$token->attr->{Font});
 	my $gravity=GetGravity($token->attr->{TextAlignment} );
 
 	$string=$token->attr->{Text};
 	if ($string =~ /\%.+\%/) {
-		DeTokenize(\$string,$mediainfo,$movie_xml,$Template_Path,$template_xml,@Files);
+		DeTokenize($config_options,\$string,$mediainfo,$movie_xml,$Template_Path,$template_xml,@Files);
 	}
 
 
@@ -735,7 +765,7 @@ sub TextWrap {
 sub DeTokenize {
 # convert the template %TOKEN% tokens to their actual value
 # this requires the mediainfo hash and the moviedb xml
-	use vars qw($DEBUG);
+	my $config_options=shift;
 	my $string=shift;  # the string where I replace the token
 	my $media_info=shift;
 	my $movie_xml=shift;
@@ -745,7 +775,7 @@ sub DeTokenize {
 
 	return 1 unless ($$string =~ /%/) ;
 
-	Logger ("Detokenizing $$string","DEBUG") if $DEBUG;
+	Logger($config_options,"Detokenizing $$string","DEBUG") if $config_options->{DEBUG};
 
 	if ($$string =~ /\%COUNTRIES\%/ ) {
 		# determine Country information
@@ -779,38 +809,45 @@ sub DeTokenize {
 				$$string =~ s/\{TITLECASE\}//;
 			}
 			else {
-				Logger("I have found a text modifier I don't recognize -- $1?","ERROR");
+				Logger($config_options,"I have found a text modifier I don't recognize -- $1?","DEBUG") if $config_options->{DEBUG};
 			}
 		}
 	}
 
-	if ($$string =~ /\%DURATIONTEXT\%/ and (ref($media_info->{Mediainfo}->{File}->{track})=~/array/ )) {
-		$$string =~ s/\%DURATIONTEXT\%/$media_info->{Mediainfo}->{File}->{track}->[1]->{Duration}/;
+	if ($$string =~ /\%DURATIONTEXT\%/) {
+		my $rep = (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[1]->{Duration};
+		$$string =~ s/\%DURATIONTEXT\%/$rep/;
 	}
 	
-	if ($$string =~ /\%FRAMERATETEXT\%/ and (ref($media_info->{Mediainfo}->{File}->{track})=~/array/ ) ) {
-		$$string =~ s/\%FRAMERATETEXT\%/$media_info->{Mediainfo}->{File}->{track}->[1]->{Frame_rate}/;
+	if ($$string =~ /\%FRAMERATETEXT\%/) {
+		my $rep = (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[1]->{Frame_rate};
+		$$string =~ s/\%FRAMERATETEXT\%/$rep/;
 	}
 
-	if ($$string =~ /\%ASPECTRATIOTEXT\%/  and (ref($media_info->{Mediainfo}->{File}->{track})=~/array/ )) {
-		$$string =~ s/\%ASPECTRATIOTEXT\%/$media_info->{Mediainfo}->{File}->{track}->[1]->{Display_aspect_ratio}/;
+	if ($$string =~ /\%ASPECTRATIOTEXT\%/) {
+		my $rep = (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[1]->{Display_aspect_ratio};
+		$$string =~ s/\%ASPECTRATIOTEXT\%/$rep/;
 	}
 
-	if ($$string =~ /\%VIDEOBITRATETEXT\%/ and (ref($media_info->{Mediainfo}->{File}->{track})=~/array/ ) ) {
-		$$string =~ s/\%VIDEOBITRATETEXT\%/$media_info->{Mediainfo}->{File}->{track}->[1]->{Bit_rate}/;
+	if ($$string =~ /\%VIDEOBITRATETEXT\%/) {
+		my $rep = (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[1]->{Bit_rate};
+		$$string =~ s/\%VIDEOBITRATETEXT\%/$rep/;
 	}
 
-	if ($$string =~ /\%AUDIOCHANNELSTEXT\%/ and (ref($media_info->{Mediainfo}->{File}->{track})=~/array/ ) ) {
-		$$string =~ s/\%AUDIOCHANNELSTEXT\%/$media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_}/;
+	if ($$string =~ /\%AUDIOCHANNELSTEXT\%/) {
+		my $rep = (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[1]->{Channel_s_};
+		$$string =~ s/\%AUDIOCHANNELSTEXT\%/$rep/;
 		$$string =~ s/(\d+) .*$/$1 ch/;
 	}
 
-	if ($$string =~ /\%AUDIOBITRATETEXT\%/ and (ref($media_info->{Mediainfo}->{File}->{track})=~/array/ ) ) {
-		$$string =~ s/\%AUDIOBITRATETEXT\%/$media_info->{Mediainfo}->{File}->{track}->[2]->{Bit_rate}/;
+	if ($$string =~ /\%AUDIOBITRATETEXT\%/) {
+		my $rep = (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[2]->{Bit_rate};
+		$$string =~ s/\%AUDIOBITRATETEXT\%/$rep/;
 	}
 
-	if ($$string =~ /\%FILESIZETEXT\%/ and (ref($media_info->{Mediainfo}->{File}->{track})=~/array/ ) ) {
-		$$string =~ s/\%FILESIZETEXT\%/$media_info->{Mediainfo}->{File}->{track}->[0]->{File_size}/;
+	if ($$string =~ /\%FILESIZETEXT\%/) {
+		my $rep = (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[0]->{File_size};
+		$$string =~ s/\%FILESIZETEXT\%/$rep/;
 	}
 
 	if ($$string =~ /\%RATING\%/ ) {
@@ -877,8 +914,8 @@ sub DeTokenize {
     }
   }
 
-	if ($$string =~ /\%VIDEOFORMAT\%/ and (ref($media_info->{Mediainfo}->{File}->{track})=~/array/ ) ) {
-		my $rep;
+	if ($$string =~ /\%VIDEOFORMAT\%/ and (ref($media_info->{Mediainfo}->{File}->{track}) eq "ARRAY" ) ) {
+		my $rep="";
 		my $format=$media_info->{Mediainfo}->{File}->{track}->[1]->{Format};
 
 		if ( $format =~ /mpeg-4/i ) { $format="Divx" }
@@ -888,8 +925,8 @@ sub DeTokenize {
 		$$string =~ s/\%VIDEOFORMAT\%/$rep/;
 	}
 
-	if ($$string =~ /\%MEDIAFORMAT\%/ and (ref($media_info->{Mediainfo}->{File}->{track})=~/array/ ) ) {
-		my $rep;
+	if ($$string =~ /\%MEDIAFORMAT\%/ and (ref($media_info->{Mediainfo}->{File}->{track}) eq "ARRAY" ) ) {
+		my $rep="";
 		my $format=$media_info->{Mediainfo}->{File}->{track}->[0]->{Format};
 
 		if ( $format =~ /Matroska/i ) { $format="mkv" }
@@ -905,13 +942,13 @@ sub DeTokenize {
 		$$string =~ s/\%RESOLUTION\%/$rep/;
 	}
 
-	if ($$string =~ /\%SOUNDFORMAT\%/ and (ref($media_info->{Mediainfo}->{File}->{track})=~/array/ ) ) {
+	if ($$string =~ /\%SOUNDFORMAT\%/ and (ref($media_info->{Mediainfo}->{File}->{track}) eq "ARRAY" ) ) {
 		# this is a bit more involved given the permutations of media formats
 		my $format=$media_info->{Mediainfo}->{File}->{track}->[2]->{Format};
 		my $format_version=$media_info->{Mediainfo}->{File}->{track}->[2]->{Format_version};
 		my $channels=$media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_};
 		my $text;
-		my $rep;
+		my $rep="";
 
 		if ( $format =~ /mpeg/i ) {
 			if ( $format_version =~ /1/ ) {
@@ -999,12 +1036,12 @@ sub DeTokenize {
 		# fix the source, it will come in Window Path Format, switch it to Unix
 		$$string =~ s/\%PATH\%/$Template_Path/;
 		$$string =~ tr |\\|/|;
-		Logger("Path expanded -> $$string","DEBUG") if $DEBUG;
+		Logger($config_options,"Path expanded -> $$string","DEBUG") if $config_options->{DEBUG};
 	}
 
 	if ($$string =~ /\%.+\%/ ) {
 		# add some color so this stands out
-		Logger("Unable to Detokenize -> $$string","ERROR") if $DEBUG;
+		Logger($config_options,"Unable to Detokenize -> $$string","DEBUG")if $config_options->{DEBUG};
 		return 0;
 	} 
 	return 1;
@@ -1030,26 +1067,26 @@ sub grab_thumbnail {
 
 sub generate_moviesheet {
 # takes as input a movie data hash, a template file and the filenamed array
+	my $config_options=shift;
 	my $movie_xml=shift;
 	my $mediainfo=shift;
-	my $template=shift;
 	my $Template_Path=shift;
 	my @Files=@_;
 
-	my $parser = XML::TokeParser->new( $template );
-	my $template_obj = new XML::Bare(file => "$Template_Path/Template.xml" );
+	my $parser = XML::TokeParser->new( $config_options->{TEMPLATEPATH} );
+	my $template_obj = new XML::Bare(file => $config_options->{TEMPLATEPATH} );
 	my $template_xml=$template_obj->parse();
 
 	my $moviesheet;
 
 	while( defined( my $token = $parser->get_token() ) ){
     if ( ($token->tag =~ /ImageDrawTemplate/ ) && ($token->is_start_tag) ) {
-     	Logger("Starting Moviesheet Generation","DEBUG");
+     	Logger($config_options,"Starting Moviesheet Generation","DEBUG") if $config_options->{DEBUG};
     }
 
     if ( ($token->tag eq "Canvas") && ($token->is_start_tag) ) {
      	my $msg=sprintf("create a canvas of width=%d and height=%d\n",$token->attr->{Width},$token->attr->{Height});
-		 	Logger($msg,"DEBUG")if $DEBUG;
+		 	Logger($config_options,$msg,"DEBUG")if $config_options->{DEBUG};
 		# Create a Canvas
 		my $geometry=sprintf("%dx%d",$token->attr->{Width},$token->attr->{Height});
 		$moviesheet=Image::Magick->new(size=>$geometry); # invoke new image
@@ -1058,14 +1095,14 @@ sub generate_moviesheet {
 
 		# add an image element to the canvas
     if ( ($token->tag eq "ImageElement") && ($token->is_start_tag)  ) {
-      Logger("ImageElement","INFO") if $DEBUG;
-			AddImageElement($movie_xml,$mediainfo,$moviesheet,$token,$parser,$Template_Path,$template_xml,@Files);
+      Logger($config_options,"ImageElement","DEBUG") if $config_options->{DEBUG};
+			AddImageElement($config_options,$movie_xml,$mediainfo,$moviesheet,$token,$parser,$Template_Path,$template_xml,@Files);
     }
 
 		# add a text element to the canvas
     if ( ($token->tag eq "TextElement") && ($token->is_start_tag)  ) {
-      Logger ("TextElement","INFO") if $DEBUG;
-			AddTextElement($movie_xml,$mediainfo,$moviesheet,$token,$parser,$Template_Path,$template_xml,@Files);
+      Logger($config_options,"TextElement","DEBUG") if $config_options->{DEBUG};
+			AddTextElement($config_options,$movie_xml,$mediainfo,$moviesheet,$token,$parser,$Template_Path,$template_xml,@Files);
     }
 	}
 	return $moviesheet;
@@ -1119,6 +1156,7 @@ sub clean_name {
 
 sub GetTmdbID {
 # passed in the file name, clean it and return the tmdb_id
+	my $config_options=shift;
 	my $file_name = shift;
 	my $tmdb_id;
 	
@@ -1134,13 +1172,13 @@ sub GetTmdbID {
 	$ua->timeout(10);
 	$ua->env_proxy;
 
-	Logger("http://api.themoviedb.org/2.1/Movie.search/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$movie_name","DEBUG") if $DEBUG;
+	Logger($config_options,"http://api.themoviedb.org/2.1/Movie.search/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$movie_name","DEBUG") if $config_options->{DEBUG};
 	my $response = $ua->get("http://api.themoviedb.org/2.1/Movie.search/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$movie_name");
 	my $xml_ob = new XML::Bare(text => $response->decoded_content );
 	my $xml_root=$xml_ob->simple();
 
 	if ( $xml_root->{OpenSearchDescription}->{'opensearch:totalResults'} > 1 ) {
-		Logger ("Multiple movie entries for this title\n\tthis can be fixed by adding the string tmdb_id=<the ID> to the filename\n\ti.e. 21.avi becomes 21tmdb=8065.avi to ensure we get the Kevin Spacey one","WARN");
+		Logger($config_options,"Multiple movie entries for this title\n\tthis can be fixed by adding the string tmdb_id=<the ID> to the filename\n\ti.e. 21.avi becomes 21tmdb=8065.avi to ensure we get the Kevin Spacey one","WARN") if $config_options->{DEBUG};
 		$tmdb_id=$xml_root->{OpenSearchDescription}->{movies}->{movie}->[0]->{id};
 	}
 	else {
@@ -1152,13 +1190,14 @@ sub GetTmdbID {
 sub GetMediaDetails {
 # grab the xml data for this specific movie from themoviedb.org
 # store it in a xml object so we can pull data from it as we build the moviesheet
+	my $config_options=shift;
 	my $tmdb_id=shift;
 
 	my $ua = LWP::UserAgent->new;
 	$ua->timeout(10);
 	$ua->env_proxy;
 
-	Logger("http://api.themoviedb.org/2.1/Movie.getInfo/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$tmdb_id","DEBUG") if $DEBUG;
+	Logger($config_options,"http://api.themoviedb.org/2.1/Movie.getInfo/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$tmdb_id","DEBUG") if $config_options->{DEBUG};
 	my $response = $ua->get("http://api.themoviedb.org/2.1/Movie.getInfo/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$tmdb_id");
 	my $xml_data=decode_entities($response->decoded_content);
 	my $xml_ob = new XML::Bare(text => $xml_data );
@@ -1169,11 +1208,12 @@ sub GetMediaDetails {
 
 sub GetMediaInfo {
 # call the shell program mediainfo on $actual_file_name and return a hash reference to it
+	my $config_options=shift;
 	my $movie_name=shift;
 
 	# I really hate doing it this way.  At some point it would be great to talk direct to the library
 	# some effort should be put into ensuring that $movie_name is safe
-	my $cmd=sprintf("mediainfo --Output=XML \"%s\" |",$movie_name);
+	my $cmd=sprintf("mediainfo --Output=XML \"%s\" |","$config_options->{MOVIEDIR}/$movie_name");
 	#open my $FD, "mediainfo --Output=XML '$movie_name' |" or die "unable to open $movie_name";
   open my $FD, $cmd or die "unable to open $movie_name";
   my @xml=<$FD>;
@@ -1203,50 +1243,74 @@ sub Usage {
 	exit 0;
 }
 
-Usage unless ($#ARGV == 1);
+sub Main {
+	my $config_options=shift;
 
-my $template=$ARGV[0];
-my $movie_directory=$ARGV[1];
+	my ($Template_Filename, $Template_Path) = fileparse($config_options->{TEMPLATEPATH});
+	$Template_Path =~ s/\/$//;
 
-my ($Template_Filename, $Template_Path) = fileparse($template);
-$Template_Path =~ s/\/$//;
-
-# there is no guarantee of case in Windows Filenaming.
-# we need to make sure we can load the file case insensitively.
-my @names = File::Finder->in("$Template_Path/..");
-
-# generic debugging information.  probably replaced later with command line argument
-our $DEBUG=0;
-
-my $moviesheet;
-my $thumbnail;
-
-opendir DIR, $movie_directory || die "Unable to open Movie Directory";
-	my @movies=grep{ /^\w+/ && !/^\.+/ && !/jpg/ && -f "$movie_directory/$_" } readdir(DIR);
-closedir DIR;
-
-foreach (@movies) {
-	chomp;
-	Logger("Creating a moviesheet for $_","INFO");
-	my $actual_file_name = $_;
-	my $tmdb_id=GetTmdbID($actual_file_name);
-	# get the media_info hash
-	my $mediainfo=GetMediaInfo("$movie_directory/$actual_file_name");
-	$actual_file_name =~ s/\.\w+$//; # remove the trailing suffix
-
-	if ( !( -e "$movie_directory/$actual_file_name.jpg") && (defined($tmdb_id)) ) {
-		# get more detailed information using the Movie.getInfo call
-		my $xml_root=GetMediaDetails($tmdb_id);
-		# start the movie sheet generation
- 		$moviesheet=generate_moviesheet($xml_root, $mediainfo, $template, $Template_Path, @names);
-		Logger("Writing ${_}_sheet.jpg","INFO") ;
-		$moviesheet->Write("$movie_directory/${_}_sheet.jpg");
-		$thumbnail=grab_thumbnail($xml_root);
-		Logger("Writing thumbnail","INFO") ;
-		$thumbnail->Write("$movie_directory/$actual_file_name.jpg");
+	# there is no guarantee of case in Windows Filenaming.
+	# we need to make sure we can load the file case insensitively.
+	my @names = File::Finder->in("$Template_Path/..");
+	my $moviesheet;
+	my $thumbnail;
+	
+	opendir DIR, $config_options->{MOVIEDIR} or die "Unable to open Movie Directory";
+		my @movies=grep{ /^\w+/ && !/^\.+/ && !/jpg/ && -f "$config_options->{MOVIEDIR}/$_" } readdir(DIR);
+	closedir DIR;
+	
+	foreach (@movies) {
+		chomp;
+		Logger($config_options,"Creating a moviesheet for $_","INFO") if $config_options->{DEBUG};
+		my $actual_file_name = $_;
+		my $tmdb_id=GetTmdbID($config_options,$actual_file_name);
+		unless (defined($tmdb_id)) {
+			Logger($config_options,"unable to find movie data for $_","CRIT");
+		}
+		# get the media_info hash
+		my $mediainfo=GetMediaInfo($config_options,$actual_file_name);
+		$actual_file_name =~ s/\.\w+$//; # remove the trailing suffix
+	
+		if ( defined($tmdb_id) && ( ($config_options->{OVERWRITE}) || !( -e "$config_options->{MOVIEDIR}/$actual_file_name.jpg"))  ) {
+			# get more detailed information using the Movie.getInfo call
+			my $xml_root=GetMediaDetails($config_options,$tmdb_id);
+			# start the movie sheet generation
+ 			$moviesheet=generate_moviesheet($config_options,$xml_root, $mediainfo, $Template_Path, @names);
+			Logger($config_options,"Writing ${_}_sheet.jpg","INFO") if $config_options->{DEBUG} ;
+			$moviesheet->Write("$config_options->{MOVIEDIR}/${_}_sheet.jpg");
+			$thumbnail=grab_thumbnail($xml_root);
+			Logger($config_options,"Writing thumbnail","INFO") if $config_options->{DEBUG} ;
+			$thumbnail->Write("$config_options->{MOVIEDIR}/$actual_file_name.jpg");
+		}
+	
 	}
-	else {
-		Logger("unable to find movie data for $_","ERROR");
-	}
-
 }
+
+my %config_options;
+my $debug="WARN";
+my $overwrite=0;
+my $conf_file="rendering.conf";
+my $recurse=0;
+
+my $results=GetOptions ("debug=s"			=> \$debug,
+												"overwrite"	=> \$overwrite,
+												"file=s"			=> \$conf_file,
+												"recurse"		=> \$recurse);
+
+# build up a hash with base information for this run
+$config_options{DEBUG}=$debug;
+$config_options{OVERWRITE}=$overwrite;
+$config_options{CONF_FILE}=$conf_file;
+$config_options{RECURSE}=$recurse;
+
+# read in the options in the config file
+open (FD, $config_options{CONF_FILE}) or die "Unable to open config file $config_options{CONF_FILE}\n";
+	while (my $line = <FD>) {
+		chomp;
+		if ($line =~ /^(\w+)=(.*)$/) {
+			$config_options{$1}=$2;
+		}
+	}
+close FD;
+
+Main(\%config_options);

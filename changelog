@@ -1,0 +1,5 @@
+v 0.3
+- added command line arguments
+- added conf file
+- debugged some logic to prevent imagemagick from opening non existant image
+files

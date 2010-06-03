@@ -1236,7 +1236,7 @@ Usage: Thumbscanner [options]
   -h  --help              print this usage and exit
   -r  --recurse           recursively scan subdirectories, default is no
   -d  --debug             print debugging information values < CRIT | ERROR | WARN | INFO | DEBUG >
-  -f  --file              use a specific config file, default is rendering.conf
+  -f  --file              use a specific config file, default is engine.conf
   -o  --overwrite         overwrite existing moviesheets and thumbnails
 
 Example:
@@ -1255,7 +1255,7 @@ sub ScanMovieDir {
 
   chdir($workdir) or die "Unable to enter dir $workdir:$!\n";
   opendir(DIR, ".") or die "Unable to open $workdir:$!\n";
-	my @names=grep{ /^\w+/ && !/^\.+/ && !/jpg/ } readdir(DIR);
+	my @names=grep{ /^\w+/ && !/^\.+/ && !/jpg/ && !/video ts/i } readdir(DIR);
   closedir(DIR);
  
   foreach my $name (@names){
@@ -1295,8 +1295,8 @@ sub ScanMovieDir {
 				$thumbnail->Write("$short_name.jpg");
 			}
   	}
-  chdir($startdir) or die "Unable to change to dir $startdir:$!\n";
 	}
+  chdir($startdir) or die "Unable to change to dir $startdir:$!\n";
 }
 
 
@@ -1328,7 +1328,7 @@ sub Main {
 my %config_options;
 my $debug="WARN";
 my $overwrite=0;
-my $conf_file="rendering.conf";
+my $conf_file="engine.conf";
 my $recurse=0;
 my $help=0;
 

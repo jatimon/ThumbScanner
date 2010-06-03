@@ -22,7 +22,7 @@ See INSTALLATION file.
 Usage
 =====
 
-Usage: SheetScanner [options] 
+Usage: Thumbscanner [options] 
   -h  --help              print this usage and exit
   -r  --recurse           recursively scan subdirectories, default is no
   -d  --debug             print debugging information values < CRIT | ERROR | WARN | INFO | DEBUG >
@@ -30,7 +30,7 @@ Usage: SheetScanner [options]
   -o  --overwrite         overwrite existing moviesheets and thumbnails
 
 Example:
-  SheetScanner -r -d INFO -o
+  Thumbscanner -r -d INFO -o
 
   This will recurse subdirectories and overwrite existing moviesheets and thumbnails as well as printing debugging information at level INFO.
 
@@ -38,7 +38,7 @@ Configuration
 =============
 The file engine.conf is the default configuration file.  It contains directives used for generating your moviesheets.  These are the following
 
-TEMPLATE -- This is the path to the Template.xml file to use.  It can be either relative or fully qualified.  If you use a relative path, you need to ensure that you always run SheetScanner from the correct directory.
+TEMPLATE -- This is the path to the Template.xml file to use.  It can be either relative or fully qualified.  If you use a relative path, you need to ensure that you always run Thumbscanner from the correct directory.
 PROVIDER -- This is the internet provider that will be used to get fanart and Movie information for your Movies.  Currently the only coded provided is themoviedb
 MOVIEDIR -- This is the root of your movie directory.  
 

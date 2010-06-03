@@ -1232,7 +1232,7 @@ sub Usage {
 
 	print STDERR<<EOF;
 
-Usage: SheetScanner [options] 
+Usage: Thumbscanner [options] 
   -h  --help              print this usage and exit
   -r  --recurse           recursively scan subdirectories, default is no
   -d  --debug             print debugging information values < CRIT | ERROR | WARN | INFO | DEBUG >
@@ -1240,7 +1240,7 @@ Usage: SheetScanner [options]
   -o  --overwrite         overwrite existing moviesheets and thumbnails
 
 Example:
-  rendering_engine -r -d INFO -o
+  Thumbscanner -r -d INFO -o
 
 	This will recurse subdirectories and overwrite existing moviesheets and thumbnails as well as printing debugging information at level INFO.
 EOF

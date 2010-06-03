@@ -8,14 +8,14 @@ The tarball is available at http://www.4shared.com/file/7lv67FV6/Moviesheettar.h
 
 Untar it and go.  The tarball should contain the following files.
 
-SheetScanner/
-SheetScanner/SheetScanner.pl
-SheetScanner/README
-SheetScanner/LICENSE
-SheetScanner/changelog
-SheetScanner/TODO
-SheetScanner/TOKENS
-SheetScanner/engine.conf
+Thumbscanner/
+Thumbscanner/Thumbscanner.pl
+Thumbscanner/README
+Thumbscanner/LICENSE
+Thumbscanner/changelog
+Thumbscanner/TODO
+Thumbscanner/TOKENS
+Thumbscanner/engine.conf
 
 However, I tend to keep the GIT repository more upto date with periodic checkins.
 

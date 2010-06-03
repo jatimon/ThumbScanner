@@ -1,0 +1,50 @@
+
+Installation
+============
+
+The script is available via both git and in tarball format.
+
+The tarball is available at http://www.4shared.com/file/7lv67FV6/Moviesheettar.html
+
+Untar it and go.  The tarball should contain the following files.
+
+SheetScanner/
+SheetScanner/SheetScanner.pl
+SheetScanner/README
+SheetScanner/LICENSE
+SheetScanner/changelog
+SheetScanner/TODO
+SheetScanner/TOKENS
+SheetScanner/engine.conf
+
+However, I tend to keep the GIT repository more upto date with periodic checkins.
+
+This could be good or bad depending on your thinking.  I may actually checkin an instance that is less than up to date.  When I check into GIT a version that is ready for release I always tag it with a version number.  I host my GIT repository at www.github.com.
+
+URL: git://github.com/jatimon/ThumbScanner.git
+
+just install GIT if you don't have it.  CD to a directory and type git clone git://github.com/jatimon/ThumbScanner.git
+
+this will pull down the most recent commit.
+
+
+Other Requirements
+==================
+There are two other software requirements.
+
+1) ImageMagick.  http://www.imagemagick.org/script/index.php  I would recommend a binary release if one if available for your distribution.  I use ubuntu and simply did apt-get install imagemagick
+2) MediaInfo.    http://mediainfo.sourceforge.net/en/Download  Again, I recommend a binary release.
+
+
+Perl Requirements
+=================
+
+use Image::Magick;
+use XML::TokeParser;
+use File::Finder;
+use XML::Bare;
+use LWP::UserAgent;
+use HTML::Entities;
+
+All of these with the exception of Image::Magick I installed using the perl CPAN shell, i.e. perl -MCPAN -e shell  The just type install XML::Bare for example.  Image::Magick I installed with apt, apt-get install perlmagick
+

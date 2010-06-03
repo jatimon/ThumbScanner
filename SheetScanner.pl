@@ -4,6 +4,7 @@
 $|=1;
 
 use strict;
+use Cwd;
 use Getopt::Long;
 use Image::Magick;
 use XML::TokeParser;
@@ -14,7 +15,6 @@ use Math::Trig;
 use XML::Bare;
 use LWP::UserAgent;
 use HTML::Entities;
-use Getopt::Long;
 
 #---------------------------------------------------------------------------------------------
 #
@@ -431,9 +431,7 @@ sub AddImageElement {
 	my $base_image=shift;
 	my $token=shift;
 	my $parser=shift;
-	my $Template_Path=shift;
 	my $template_xml=shift;
-	my @Files=@_;
 	my $sourceData;
 	my $geometry=sprintf("%dx%d",$token->attr->{Width},$token->attr->{Height});
 	my $temp=Image::Magick->new(magick=>'png');
@@ -442,7 +440,7 @@ sub AddImageElement {
 		if ( $sourceData =~ /\%RATINGSTARS\%/ ) {
 			# this token is part of the Settings token in the template.xml file
 			my $source=$template_xml->{Template}->{Settings}->{Rating}->{FileName}->{value};
-			next unless DeTokenize($config_options,\$source,$mediainfo,$movie_xml,$Template_Path,$template_xml,@Files);
+			next unless DeTokenize($config_options,\$source,$mediainfo,$movie_xml,$template_xml);
 			my $rating=$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{rating}->{value};
     	$temp->Read($source);
 			my ($width, $height) = $temp->Get('columns', 'rows');
@@ -473,7 +471,7 @@ sub AddImageElement {
 
 		}
 		else {
-			next unless DeTokenize($config_options,\$sourceData,$mediainfo,$movie_xml,$Template_Path,$template_xml,@Files);
+			next unless DeTokenize($config_options,\$sourceData,$mediainfo,$movie_xml,$template_xml);
 
 			if ($sourceData eq "") {
 				Logger($config_options,"I was unable to find information on the web for this movie","CRIT");
@@ -485,7 +483,7 @@ sub AddImageElement {
     		$temp->Read($sourceData);
 			}
 			else {
-			my @newSource = grep {/$sourceData/i} @Files;
+			my @newSource = grep {/$sourceData/i} @{$config_options->{names}};
 				$sourceData=$newSource[0] if $newSource[0] ne '';
 				# check to make sure image file actually exists.  Otherwise Alert user and read xc:none
 				if (-e $sourceData) {
@@ -591,7 +589,7 @@ sub AddImageElement {
 					}
 					else {
 						if ( ( $token->tag ) && ( $token->is_start_tag ) ) {
-							Logger($config_options,"don't know what to do with " . $token->tag ,"DEBUG")if $config_options->{DEBUG};
+							Logger($config_options,"don't know what to do with " . $token->tag ,"ERROR") if $config_options->{DEBUG};
 						}
 					}
 					last if ( ($token->tag =~ /Actions/) );
@@ -681,9 +679,7 @@ sub AddTextElement {
 	my $base_image=shift;
 	my $token=shift;
 	my $parser=shift;
-	my $Template_Path=shift;
 	my $template_xml=shift;
-	my @Files=@_;
 	my $sourceData;
 	my $string;
 
@@ -704,10 +700,10 @@ sub AddTextElement {
 
 	$string=$token->attr->{Text};
 	if ($string =~ /\%.+\%/) {
-		DeTokenize($config_options,\$string,$mediainfo,$movie_xml,$Template_Path,$template_xml,@Files);
+		DeTokenize($config_options,\$string,$mediainfo,$movie_xml,$template_xml);
 	}
 
-
+	Logger($config_options,"Font Family=$font_hash->{Family}\tsize=$font_hash->{Size}","DEBUG") if $config_options->{DEBUG};
 	my @text_attributes=$temp->QueryFontMetrics(text=>$string, fill=>$forecolor, font=>$font_hash->{Family}, pointsize=>$font_hash->{Size} ,antialias=>'True', gravity=>$gravity);
 	if ($text_attributes[4] > $token->attr->{Width} ) {
 		# time to wrap some text
@@ -769,9 +765,7 @@ sub DeTokenize {
 	my $string=shift;  # the string where I replace the token
 	my $media_info=shift;
 	my $movie_xml=shift;
-	my $Template_Path=shift;
 	my $template_xml=shift;
-	my @Files=@_;
 
 	return 1 unless ($$string =~ /%/) ;
 
@@ -835,9 +829,9 @@ sub DeTokenize {
 	}
 
 	if ($$string =~ /\%AUDIOCHANNELSTEXT\%/) {
-		my $rep = (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[1]->{Channel_s_};
+		my $rep = (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_};
+		$rep =~ s/(\d+) .*$/$1 /;
 		$$string =~ s/\%AUDIOCHANNELSTEXT\%/$rep/;
-		$$string =~ s/(\d+) .*$/$1 ch/;
 	}
 
 	if ($$string =~ /\%AUDIOBITRATETEXT\%/) {
@@ -1034,14 +1028,14 @@ sub DeTokenize {
 
 	if ( $$string =~ /\%PATH\%/ ) {
 		# fix the source, it will come in Window Path Format, switch it to Unix
-		$$string =~ s/\%PATH\%/$Template_Path/;
+		$$string =~ s/\%PATH\%/$config_options->{Template_Path}/;
 		$$string =~ tr |\\|/|;
 		Logger($config_options,"Path expanded -> $$string","DEBUG") if $config_options->{DEBUG};
 	}
 
 	if ($$string =~ /\%.+\%/ ) {
 		# add some color so this stands out
-		Logger($config_options,"Unable to Detokenize -> $$string","DEBUG")if $config_options->{DEBUG};
+		Logger($config_options,"Unable to Detokenize -> $$string","ERROR") if $config_options->{DEBUG};
 		return 0;
 	} 
 	return 1;
@@ -1070,11 +1064,9 @@ sub generate_moviesheet {
 	my $config_options=shift;
 	my $movie_xml=shift;
 	my $mediainfo=shift;
-	my $Template_Path=shift;
-	my @Files=@_;
 
-	my $parser = XML::TokeParser->new( $config_options->{TEMPLATEPATH} );
-	my $template_obj = new XML::Bare(file => $config_options->{TEMPLATEPATH} );
+	my $parser = XML::TokeParser->new( $config_options->{TEMPLATE} );
+	my $template_obj = new XML::Bare(file => $config_options->{TEMPLATE} );
 	my $template_xml=$template_obj->parse();
 
 	my $moviesheet;
@@ -1096,13 +1088,13 @@ sub generate_moviesheet {
 		# add an image element to the canvas
     if ( ($token->tag eq "ImageElement") && ($token->is_start_tag)  ) {
       Logger($config_options,"ImageElement","DEBUG") if $config_options->{DEBUG};
-			AddImageElement($config_options,$movie_xml,$mediainfo,$moviesheet,$token,$parser,$Template_Path,$template_xml,@Files);
+			AddImageElement($config_options,$movie_xml,$mediainfo,$moviesheet,$token,$parser,$template_xml);
     }
 
 		# add a text element to the canvas
     if ( ($token->tag eq "TextElement") && ($token->is_start_tag)  ) {
       Logger($config_options,"TextElement","DEBUG") if $config_options->{DEBUG};
-			AddTextElement($config_options,$movie_xml,$mediainfo,$moviesheet,$token,$parser,$Template_Path,$template_xml,@Files);
+			AddTextElement($config_options,$movie_xml,$mediainfo,$moviesheet,$token,$parser,$template_xml);
     }
 	}
 	return $moviesheet;
@@ -1178,12 +1170,14 @@ sub GetTmdbID {
 	my $xml_root=$xml_ob->simple();
 
 	if ( $xml_root->{OpenSearchDescription}->{'opensearch:totalResults'} > 1 ) {
-		Logger($config_options,"Multiple movie entries for this title\n\tthis can be fixed by adding the string tmdb_id=<the ID> to the filename\n\ti.e. 21.avi becomes 21tmdb=8065.avi to ensure we get the Kevin Spacey one","WARN") if $config_options->{DEBUG};
+		Logger($config_options,"Multiple movie entries found for $movie_name\n\tthis can be fixed by adding the string tmdb_id=<the ID> to the filename\n\ti.e. 21.avi becomes 21tmdb=8065.avi to ensure we get the Kevin Spacey one","WARN") if $config_options->{DEBUG};
 		$tmdb_id=$xml_root->{OpenSearchDescription}->{movies}->{movie}->[0]->{id};
 	}
 	else {
 		$tmdb_id=$xml_root->{OpenSearchDescription}->{movies}->{movie}->{id};
 	}
+
+	Logger($config_options,"Found tmdb_id='$tmdb_id'","DEBUG");
 	return $tmdb_id;
 }	
 
@@ -1213,14 +1207,13 @@ sub GetMediaInfo {
 
 	# I really hate doing it this way.  At some point it would be great to talk direct to the library
 	# some effort should be put into ensuring that $movie_name is safe
-	my $cmd=sprintf("mediainfo --Output=XML \"%s\" |","$config_options->{MOVIEDIR}/$movie_name");
+	my $cmd=sprintf("mediainfo --Output=XML \"%s\" |","$movie_name");
 	#open my $FD, "mediainfo --Output=XML '$movie_name' |" or die "unable to open $movie_name";
   open my $FD, $cmd or die "unable to open $movie_name";
   my @xml=<$FD>;
   close $FD;
 
   my $ob = new XML::Bare(text => "@xml" );
-
   return $ob->simple();
 }
 
@@ -1237,53 +1230,99 @@ sub Usage {
 # 1) full path to Template.xml
 # 2) full path to Movie directory
 
-	print STDERR "Usage:\n\n";
-	print STDERR "\t $0 <path to Template.xml> <path to Movie directory>\n\n";
-	print STDERR "\t i.e. $0 /samba_mount/media/templates/Dribblers_cool_template /samba_mount/media/movies\n\n";
+	print STDERR<<EOF;
+
+Usage: SheetScanner [options] 
+  -h  --help              print this usage and exit
+  -r  --recurse           recursively scan subdirectories, default is no
+  -d  --debug             print debugging information values < CRIT | ERROR | WARN | INFO | DEBUG >
+  -f  --file              use a specific config file, default is rendering.conf
+  -o  --overwrite         overwrite existing moviesheets and thumbnails
+
+Example:
+  rendering_engine -r -d INFO -o
+
+	This will recurse subdirectories and overwrite existing moviesheets and thumbnails as well as printing debugging information at level INFO.
+EOF
 	exit 0;
 }
+
+sub ScanMovieDir {
+	my $config_options=shift;
+  my $workdir=shift; 
+
+  my $startdir=&cwd; # keep track of where we began
+
+  chdir($workdir) or die "Unable to enter dir $workdir:$!\n";
+  opendir(DIR, ".") or die "Unable to open $workdir:$!\n";
+	my @names=grep{ /^\w+/ && !/^\.+/ && !/jpg/ } readdir(DIR);
+  closedir(DIR);
+ 
+  foreach my $name (@names){
+    if ( -d $name && ($config_options->{RECURSE} == 1) ){                     # is this a directory?
+			Logger($config_options,"Entering Directory $name","DEBUG") if $config_options->{DEBUG}; 
+      ScanMovieDir($config_options,$name);
+      next;
+    }
+		elsif ( -e $name && !(-d $name) ) {
+			my $moviesheet;
+			my $thumbnail;
+			my $actual_file_name = &cwd."/$name";
+			Logger($config_options,"Processing $actual_file_name as a movie","DEBUG") if $config_options->{DEBUG};
+			Logger($config_options,"Creating a moviesheet for $name","INFO") if $config_options->{DEBUG};
+
+			my $tmdb_id=GetTmdbID($config_options,$name);
+			unless (defined($tmdb_id)) {
+				Logger($config_options,"unable to find movie data for $name","CRIT");
+			}
+			
+			my $short_name=$actual_file_name;
+			$short_name =~ s/\.\w+$//; # remove the trailing suffix
+			if ( defined($tmdb_id) && ( ($config_options->{OVERWRITE}) || !( -e "$short_name.jpg"))  ) {
+				# get the media_info hash
+				my $mediainfo=GetMediaInfo($config_options,$actual_file_name);
+				# get more detailed information using the Movie.getInfo call
+				my $xml_root=GetMediaDetails($config_options,$tmdb_id);
+
+				# start the movie sheet generation
+				$moviesheet=generate_moviesheet($config_options, $xml_root, $mediainfo);
+				Logger($config_options,"Writing ${actual_file_name}_sheet.jpg","INFO") if $config_options->{DEBUG} ;
+				$moviesheet->Write("${actual_file_name}_sheet.jpg");
+
+				# generate thumbnail
+				$thumbnail=grab_thumbnail($xml_root);
+				Logger($config_options,"Writing thumbnail","INFO") if $config_options->{DEBUG} ;
+				$thumbnail->Write("$short_name.jpg");
+			}
+  	}
+  chdir($startdir) or die "Unable to change to dir $startdir:$!\n";
+	}
+}
+
 
 sub Main {
 	my $config_options=shift;
 
-	my ($Template_Filename, $Template_Path) = fileparse($config_options->{TEMPLATEPATH});
-	$Template_Path =~ s/\/$//;
+	# confirm that the movie directory and template file exist
+	unless (-e $config_options->{TEMPLATE}) {
+		Logger($config_options,"Template file '$config_options->{TEMPLATE}' does not exist!!","CRIT");
+		exit -1;
+	}
+	unless (-e $config_options->{MOVIEDIR}) {
+		Logger($config_options,"Movie directory '$config_options->{MOVIEDIR}' does not exist!!","CRIT");
+		exit -1;
+	}
+
+	($config_options->{Template_Filename}, $config_options->{Template_Path}) = fileparse($config_options->{TEMPLATE});
+	$config_options->{Template_Path} =~ s/\/$//;
 
 	# there is no guarantee of case in Windows Filenaming.
 	# we need to make sure we can load the file case insensitively.
-	my @names = File::Finder->in("$Template_Path/..");
-	my $moviesheet;
-	my $thumbnail;
+	my @names = File::Finder->in($config_options->{Template_Path}."/..");
+	$config_options->{names}=\@names;
+
+	ScanMovieDir($config_options,$config_options->{MOVIEDIR});
 	
-	opendir DIR, $config_options->{MOVIEDIR} or die "Unable to open Movie Directory";
-		my @movies=grep{ /^\w+/ && !/^\.+/ && !/jpg/ && -f "$config_options->{MOVIEDIR}/$_" } readdir(DIR);
-	closedir DIR;
-	
-	foreach (@movies) {
-		chomp;
-		Logger($config_options,"Creating a moviesheet for $_","INFO") if $config_options->{DEBUG};
-		my $actual_file_name = $_;
-		my $tmdb_id=GetTmdbID($config_options,$actual_file_name);
-		unless (defined($tmdb_id)) {
-			Logger($config_options,"unable to find movie data for $_","CRIT");
-		}
-		# get the media_info hash
-		my $mediainfo=GetMediaInfo($config_options,$actual_file_name);
-		$actual_file_name =~ s/\.\w+$//; # remove the trailing suffix
-	
-		if ( defined($tmdb_id) && ( ($config_options->{OVERWRITE}) || !( -e "$config_options->{MOVIEDIR}/$actual_file_name.jpg"))  ) {
-			# get more detailed information using the Movie.getInfo call
-			my $xml_root=GetMediaDetails($config_options,$tmdb_id);
-			# start the movie sheet generation
- 			$moviesheet=generate_moviesheet($config_options,$xml_root, $mediainfo, $Template_Path, @names);
-			Logger($config_options,"Writing ${_}_sheet.jpg","INFO") if $config_options->{DEBUG} ;
-			$moviesheet->Write("$config_options->{MOVIEDIR}/${_}_sheet.jpg");
-			$thumbnail=grab_thumbnail($xml_root);
-			Logger($config_options,"Writing thumbnail","INFO") if $config_options->{DEBUG} ;
-			$thumbnail->Write("$config_options->{MOVIEDIR}/$actual_file_name.jpg");
-		}
-	
-	}
 }
 
 my %config_options;
@@ -1291,11 +1330,15 @@ my $debug="WARN";
 my $overwrite=0;
 my $conf_file="rendering.conf";
 my $recurse=0;
+my $help=0;
 
 my $results=GetOptions ("debug=s"			=> \$debug,
 												"overwrite"	=> \$overwrite,
 												"file=s"			=> \$conf_file,
+												"help"			=> \$help,
 												"recurse"		=> \$recurse);
+
+Usage if $help;
 
 # build up a hash with base information for this run
 $config_options{DEBUG}=$debug;

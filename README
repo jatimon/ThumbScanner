@@ -17,34 +17,58 @@ the correct size and it will overlay data that it gets from themoviedb website o
 Installation
 ============
 
-Untar it and go.  The tarball should contain the following files.
-
-rendering_engine/
-rendering_engine/rendering_engine.pl
-rendering_engine/README
-rendering_engine/LICENSE
+See INSTALLATION file.
 
 Usage
 =====
 
-cd to the directory the script is in and execute the following
+Usage: SheetScanner [options] 
+  -h  --help              print this usage and exit
+  -r  --recurse           recursively scan subdirectories, default is no
+  -d  --debug             print debugging information values < CRIT | ERROR | WARN | INFO | DEBUG >
+  -f  --file              use a specific config file, default is engine.conf
+  -o  --overwrite         overwrite existing moviesheets and thumbnails
 
-./rendering_engine.pl </path/to/Template.xml> </path/to/movie/directory>
+Example:
+  SheetScanner -r -d INFO -o
 
-/path/to/movie/directory is the directory that contains the actual movies.
+  This will recurse subdirectories and overwrite existing moviesheets and thumbnails as well as printing debugging information at level INFO.
+
+Configuration
+=============
+The file engine.conf is the default configuration file.  It contains directives used for generating your moviesheets.  These are the following
+
+TEMPLATE -- This is the path to the Template.xml file to use.  It can be either relative or fully qualified.  If you use a relative path, you need to ensure that you always run SheetScanner from the correct directory.
+PROVIDER -- This is the internet provider that will be used to get fanart and Movie information for your Movies.  Currently the only coded provided is themoviedb
+MOVIEDIR -- This is the root of your movie directory.  
 
 Requirements
 ============
 
-- Still growing
-
 - Perl with the following modules
 
+strict
+Cwd
+Getopt::Long
 Image::Magick
 XML::TokeParser
+Data::Dumper
 File::Basename
 File::Finder
 Math::Trig
+XML::Bare
+LWP::UserAgent
+HTML::Entities
+
+Most of these are Core Modules, however you will need to install
+
+Image::Magick
+XML::TokeParser
+File::Finder
+XML::Bare
+LWP::UserAgent
+HTML::Entities
+
 
 - Template files.  It is built against Dribblers Templates.
 
@@ -55,3 +79,5 @@ Sadly Linux hasn't fully matured with respect to fonts and font availablility.
 Some twiddling needs to be done to ensure that windows fonts are available for use by the rendering engine and ImageMagick in general.
 
 TODO: write a script to install the ms fonts and add them to imagemagick.....
+
+

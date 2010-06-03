@@ -1,12 +1,7 @@
 - display resolution token correctly
-- output the moviesheet to the source directory, correctly named
-- consider conf/ini configuration file
 - a couple of image transforms remain to be done
 - figure out subtitles.
 - add more than just one source for movie information.
-- command line flags for debug and conf file over ride.
-	- debugging option and level
-	- Template file
-	- movie directory
 - perhaps a script to add fonts to imagemagick
 - fix for .iso files
+

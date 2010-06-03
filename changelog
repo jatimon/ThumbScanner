@@ -1,3 +1,10 @@
+v 0.4
+- implemented the ability to recursivly scan subdirectories of the main movie directory, this is provided by the -r command line option
+- changed the name of the script to something more meaningful i.e.  SheetScanner.pl
+- changed the name of the config file to engine.conf
+- modified the README file
+- added the INSTALLATION file that contains installation instructions
+
 v 0.3
 - added command line arguments
 - added conf file

@@ -781,6 +781,15 @@ sub DeTokenize {
 		}
 	}
 
+#if ($$string =~ /\%CERTIFICATION\%/ ) {
+#if (  ref($movie_xml->{OpenSearchDescription}->{movies}->{movie}->{countries}->{country}) =~ /hash/i) {
+#$$string =~ s/\%COUNTRIES\%/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{countries}->{country}->{name}->{value}/;
+#}
+#else {
+#$$string =~ s/\%COUNTRIES\%/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{countries}->{country}->[0]->{name}->{value}/;
+#}
+#}
+
 	if ($$string =~ /\%YEAR\%/ ) {
 		$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{released}->{value} =~ /.*(\d\d\d\d).*/;
 		my $year=$1;
@@ -1004,7 +1013,6 @@ sub DeTokenize {
 
 	if ($$string =~ /\%GENRES\%/ ) {
 		my @genres;
-
 		if (  ref($movie_xml->{OpenSearchDescription}->{movies}->{movie}->{categories}->{category} ) =~ /hash/i) {
       push (@genres, $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{categories}->{category}->{name}->{value}) if lc($movie_xml->{OpenSearchDescription}->{movies}->{movie}->{categories}->{category}->{name}->{value}) eq "genre" ;
 		}
@@ -1271,14 +1279,15 @@ sub ScanMovieDir {
 			Logger($config_options,"Processing $actual_file_name as a movie","DEBUG") if $config_options->{DEBUG};
 			Logger($config_options,"Creating a moviesheet for $name","INFO") if $config_options->{DEBUG};
 
-			my $tmdb_id=GetTmdbID($config_options,$name);
-			unless (defined($tmdb_id)) {
-				Logger($config_options,"unable to find movie data for $name","CRIT");
-			}
 			
 			my $short_name=$actual_file_name;
 			$short_name =~ s/\.\w+$//; # remove the trailing suffix
-			if ( defined($tmdb_id) && ( ($config_options->{OVERWRITE}) || !( -e "$short_name.jpg"))  ) {
+			if ( ($config_options->{OVERWRITE}) || !( -e "$short_name.jpg"))  {
+				my $tmdb_id=GetTmdbID($config_options,$name);
+				unless (defined($tmdb_id)) {
+					Logger($config_options,"unable to find movie data for $name","CRIT");
+					next;
+				}
 				# get the media_info hash
 				my $mediainfo=GetMediaInfo($config_options,$actual_file_name);
 				# get more detailed information using the Movie.getInfo call

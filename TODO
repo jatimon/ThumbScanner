@@ -4,4 +4,6 @@
 - add more than just one source for movie information.
 - perhaps a script to add fonts to imagemagick
 - fix for .iso files
+- fix downloading of .png files.  fails
+- write debugging output to log file
 

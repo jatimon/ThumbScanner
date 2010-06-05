@@ -6,4 +6,10 @@
 - fix for .iso files
 - fix downloading of .png files.  fails
 - write debugging output to log file
-
+- create image effect Glow
+- create image effect AdjustGamma
+- text element %VIDEORESOLUTIONTEXT% and %AUDIOCODECTEXT%
+- fix broken parsing of TITLECASE in title string
+- ensure the TextElement Actions are followed
+- verify that the XML file exists.
+- FONTS.  need to figure out why such a large difference in how Windows fonts are rendered

@@ -4,6 +4,7 @@ v 0.4
 - changed the name of the config file to engine.conf
 - modified the README file
 - added the INSTALLATION file that contains installation instructions
+- fixed bug in parsing TITLECASE text modifier
 
 v 0.3
 - added command line arguments

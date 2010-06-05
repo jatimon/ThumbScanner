@@ -803,11 +803,11 @@ sub DeTokenize {
 				$$string=uc($$string);
 				$$string =~ s/\{UPPER\}//;
 			}
-			elsif ( $$string eq "LOWER" ) {
+			elsif ( $1 eq "LOWER" ) {
 				$$string=lc($$string);
 				$$string =~ s/\{LOWER\}//;
 			}
-			elsif ( $$string eq "TITLECASE" ) {
+			elsif ( $1 eq "TITLECASE" ) {
 				$$string=ucfirst($$string);
 				$$string =~ s/\{TITLECASE\}//;
 			}

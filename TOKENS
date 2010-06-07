@@ -28,14 +28,13 @@
  %ASPECTRATIOTEXT%						|	Aspect ratio of the movie (original value) 	16:9 or 2.35:1 or 4:3
  %ASPECTRATIO%								|	Formatted aspect ration (to allow mapping to filenames). The ‘.’ character is replaced by the ‘_’ character and the ‘:’ character is replaced by ‘-’. 	16-9 or 2_35-1 or 4-3
  %VIDEORESOLUTION%						|	The movie resolution 	1920x1080
- %VIDEORESOLUTIONTEXT%				|	The movie resolution 	1920x1080
  %VIDEOCODECTEXT%							|	The CodecID value for the video codec 	AVC
  %VIDEOBITRATETEXT%						|	The video bitrate 	977 Kbps
- %AUDIOCODECTEXT%							|	The CodecID value for the audio codec 	AC-3
  %AUDIOCHANNELSTEXT%					|	The number of audio channels 	2
  %AUDIOBITRATETEXT%						|	The audio bitrate 	128 Kbps
  %DURATIONTEXT%								|	The detected (mediainfo) duration of the movie (formatted in hours and minutes) 	1h 36m
  %FILESIZETEXT%								|	The detected (mediainfo) filesize of the movie (formatted using KB, MB and GB) 	781.95 MB
+ %VIDEORESOLUTIONTEXT%				|	The movie resolution 	1920x1080
 
 ---- Unimplemented Tags ----
  %CERTIFICATIONCOUNTRYCODE%		|	The two letter code of the country selected in Options/IMDB as Certification Country (default value: us) 	es 
@@ -63,6 +62,7 @@
  %MOVIEFILENAMEWITHOUTEXT%		|	Current movie filename without extension 	Spread.2009 (for c:\Movies\Spread\Spread.2009.mkv)
  %MOVIEFOLDER%								|	Current movie folder name 	Spread (for c:\Movies\Spread\Spread.2009.mkv)
  %MOVIEPARENTFOLDER%					|	Current movie parent folder name 	Movies (for c:\Movies\Spread\Spread.2009.mkv)
+ %AUDIOCODECTEXT%							|	The CodecID value for the audio codec 	AC-3
 
 
 ---- TOKENS that can be in a conf file ----

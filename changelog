@@ -5,6 +5,10 @@ v 0.4
 - modified the README file
 - added the INSTALLATION file that contains installation instructions
 - fixed bug in parsing TITLECASE text modifier
+- added logging to a log file (LOGFILE attribute in engine.conf)
+- verify that Template.xml file exists.
+- text element %VIDEORESOLUTIONTEXT% and %AUDIOCODECTEXT%
+
 
 v 0.3
 - added command line arguments

@@ -54,8 +54,12 @@ sub Logger {
               			 'CRIT'    => 5,
       );
 
+  open my $FD, ">> $config_options->{LOGFILE}" or die "unable to open $config_options->{LOGFILE}";
+	print $FD "$level:\t$message\n";
+	close $FD;
+
 	if ($message_level{$config_options->{DEBUG}} <= $message_level{$level}){
-		print STDERR "$color{$level}$level:[0m\t[33m$message[0m\n";
+		print STDERR "$color{$level}$level:[0m\t[33m$message[0m\n" if $config_options->{DEBUG};
 	}
 }
 
@@ -119,17 +123,16 @@ sub DropShadow {
 	$delta_x=int ( (sin(deg2rad($angle) )*$distance) * $dir_x ) ; # SIN A * distance = X
 	$delta_y=int ( (cos(deg2rad($angle) )*$distance) * $dir_y ) ; # COS A * distance = Y
 
-	my $shadow_image=Image::Magick->new();
+	my $shadow_image=Image::Magick->new(Magick=>'png');
 	$shadow_image=$base_image->Clone();
 	$shadow_image->Set(background=>'none');
 	$shadow_image->Shadow(opacity=>$opacity,sigma=>$softness,X=>0, Y=>0);
 
 	my ($width, $height) = $base_image->Get('columns', 'rows');
-	my $new_image=Image::Magick->new();
+	my $new_image=Image::Magick->new(Magick=>'png');
 	$new_image->Set( size=>sprintf("%dx%d",$width+(abs($delta_x)*2), $height+abs($delta_y)));
 	$new_image->Read('xc:none');
 	$new_image->Composite(image=>$base_image, compose=>'src');
-
 
 	if ($delta_x < 0) { $new_image->Roll(x=>abs($delta_x)) }
 	$new_image->Composite(image=>$shadow_image, compose=>'dst-over',X=>$delta_x, Y=>$delta_y); 
@@ -352,7 +355,7 @@ sub RoundCorners {
 
 	if ( ($corners =~ /topleft/i ) || ( $corners =~ /All/i ) ) {
 		# make a TopLeft overlay
-		Logger($config_options,"TopLeft","DEBUG") if $config_options->{DEBUG};
+		Logger($config_options,"TopLeft","DEBUG");
 		$base_image->Composite(compose=>'dst-atop',image=>$TopLeft,gravity=>'NorthWest');
 	}
 	if ( ( $corners =~ /topright/i ) || ( $corners =~ /All/i ) ) {
@@ -360,7 +363,7 @@ sub RoundCorners {
 		my $TopRight=Image::Magick->new(magick=>'png');
 		$TopRight=$TopLeft->Clone();
 		$TopRight->Flop();
-		Logger($config_options,"TopRight","DEBUG") if $config_options->{DEBUG};
+		Logger($config_options,"TopRight","DEBUG");
 		$base_image->Composite(compose=>'dst-atop',image=>$TopRight,gravity=>'NorthEast');
 		undef $TopRight;
   }
@@ -370,7 +373,7 @@ sub RoundCorners {
 		$BottomRight=$TopLeft->Clone();
 		$BottomRight->Flop();
 		$BottomRight->Flip();
-		Logger($config_options,"BottomRight","DEBUG") if $config_options->{DEBUG};
+		Logger($config_options,"BottomRight","DEBUG");
 		$base_image->Composite(compose=>'dst-atop',image=>$BottomRight,gravity=>'SouthEast');
 		undef $BottomRight;
   }
@@ -379,7 +382,7 @@ sub RoundCorners {
 		my $BottomLeft=Image::Magick->new(magick=>'png');
 		$BottomLeft=$TopLeft->Clone();
 		$BottomLeft->Flip();
-		Logger($config_options,"BottomLeft","DEBUG") if $config_options->{DEBUG};
+		Logger($config_options,"BottomLeft","DEBUG");
 		$base_image->Composite(compose=>'dst-atop',image=>$BottomLeft,gravity=>'SouthWest');
 		undef $BottomLeft;
   }
@@ -479,7 +482,7 @@ sub AddImageElement {
 			}
 
 			if ( $sourceData =~ /^http/i ) {
-				Logger($config_options,"grabbing $sourceData from the web","INFO") if $config_options->{DEBUG};
+				Logger($config_options,"grabbing $sourceData from the web","INFO");
     		$temp->Read($sourceData);
 			}
 			else {
@@ -508,14 +511,14 @@ sub AddImageElement {
 				# start applying effects to the image.
 				while( defined( $token = $parser->get_token() ) ){
 					if ( ($token->tag =~ /Crop/) && ($token->is_start_tag)  ) { 
-						Logger($config_options,"Cropping $sourceData","DEBUG") if $config_options->{DEBUG};
+						Logger($config_options,"Cropping $sourceData","DEBUG");
 						$temp->Crop(width=>$token->attr->{Width},  
 							height=>$token->attr->{Height},  
 							x=>$token->attr->{X},  
 							y=>$token->attr->{Y} );
 					}
 					elsif ( ($token->tag =~ /GlassTable/i) && ($token->is_start_tag)  ) {
-						Logger($config_options,"Glasstabling $sourceData","DEBUG") if $config_options->{DEBUG};
+						Logger($config_options,"Glasstabling $sourceData","DEBUG");
 						$temp=GlassTable($config_options,$temp,
 							$token->attr->{ReflectionLocationX},
 							$token->attr->{ReflectionLocationY},
@@ -524,12 +527,12 @@ sub AddImageElement {
 					}
 					elsif ( ($token->tag =~ /AdjustOpacity/i) && ($token->is_start_tag)  ) {
 						my $opacity_percent=($token->attr->{Opacity}/100);
-						Logger($config_options,"Adjusting Opacity $sourceData by $opacity_percent","DEBUG") if $config_options->{DEBUG} ;
+						Logger($config_options,"Adjusting Opacity $sourceData by $opacity_percent","DEBUG");
 						# in ImageDraw, opacity ranges from 0 (fully transparent) to 100 (fully Opaque)
 						$temp->Evaluate(value=>$opacity_percent, operator=>'Multiply', channel=>'All');
 					}		
 					elsif ( ($token->tag =~ /RoundCorners/i) && ($token->is_start_tag)  ) {
-						Logger($config_options,"Rounding Corners $sourceData","DEBUG") if $config_options->{DEBUG}  ;
+						Logger($config_options,"Rounding Corners $sourceData","DEBUG");
        			$temp=RoundCorners($config_options,$temp,
        				$token->attr->{BorderColor},
        				$token->attr->{BorderWidth},
@@ -538,16 +541,16 @@ sub AddImageElement {
 					}
 					elsif ( ($token->tag =~ /AdjustSaturation/i) && ($token->is_start_tag)  ) {
 						my $level=($token->attr->{Level} * 255)/100; # imagemagick saturation is range 0-255 
-						Logger($config_options,"Adjusting Saturation level $level $sourceData","DEBUG") if $config_options->{DEBUG} ;
+						Logger($config_options,"Adjusting Saturation level $level $sourceData","DEBUG");
 						$temp->Modulate(saturation=>$level );
 					}
 					elsif ( ($token->tag =~ /AdjustBrightness/i) && ($token->is_start_tag)  ) {
 						my $level=($token->attr->{Level} * 255)/100; # imagemagick brightness is range 0-255 
-						Logger($config_options,"Adjusting brightness level $level $sourceData","DEBUG") if $config_options->{DEBUG} ;
+						Logger($config_options,"Adjusting brightness level $level $sourceData","DEBUG");
 						$temp->Modulate(brightness=>$level );
 					}
 					elsif ( ($token->tag =~ /PerspectiveView/i) && ($token->is_start_tag)  ) {
-						Logger($config_options,"Adjusting PerspectiveView $sourceData","DEBUG") if $config_options->{DEBUG};
+						Logger($config_options,"Adjusting PerspectiveView $sourceData","DEBUG");
 						$temp=PerspectiveView($config_options,$temp,
 							$token->attr->{Angle},
 							$token->attr->{Orientation}
@@ -555,13 +558,13 @@ sub AddImageElement {
 					}
 					elsif ( ($token->tag =~ /Rotate/i) && ($token->is_start_tag)  ) {
 						my $degrees=$token->attr->{Angle} * (-1);
-						Logger($config_options,"Rotating $sourceData by $degrees degrees","DEBUG") if $config_options->{DEBUG} ;
+						Logger($config_options,"Rotating $sourceData by $degrees degrees","DEBUG");
 						my ($width, $height) = $temp->Get('columns', 'rows');
        			my @points=split(/[ ,]+/,sprintf("0,%d 100 %d",$height,$degrees));
 						$temp->Distort(method=>'ScaleRotateTranslate','best-fit'=>'False','virtual-pixel'=>'transparent',points=>\@points);
 					}
 					elsif ( ($token->tag =~ /DropShadow/i) && ($token->is_start_tag)  ) {
-						Logger($config_options,"Adding Shadow to $sourceData","DEBUG") if $config_options->{DEBUG} ;
+						Logger($config_options,"Adding Shadow to $sourceData","DEBUG");
 						$temp=DropShadow($config_options,$temp,
 							$token->attr->{Angle},
 							$token->attr->{Color},
@@ -571,7 +574,7 @@ sub AddImageElement {
 						);
 					}
 					elsif ( ($token->tag =~ /Skew/i) && ($token->is_start_tag)  ) {
-						Logger($config_options,"Skewing $sourceData","DEBUG") if $config_options->{DEBUG} ;
+						Logger($config_options,"Skewing $sourceData","DEBUG");
 						$temp=Skew($config_options,$temp,
 						$token->attr->{Angle},
 						$token->attr->{ConstrainProportions},
@@ -579,7 +582,7 @@ sub AddImageElement {
 						$token->attr->{Type});
 					}
 					elsif ( ($token->tag =~ /Flip/i) && ($token->is_start_tag)  ) {
-						Logger($config_options,"Flipping/Flopping $sourceData","DEBUG") if $config_options->{DEBUG} ;
+						Logger($config_options,"Flipping/Flopping $sourceData","DEBUG");
 						if ( $token->attr->{Type} =~ /Horizontal/i ) { 
 							$temp->Flip();
 						}
@@ -589,11 +592,11 @@ sub AddImageElement {
 					}
 					else {
 						if ( ( $token->tag ) && ( $token->is_start_tag ) ) {
-							Logger($config_options,"don't know what to do with " . $token->tag ,"ERROR") if $config_options->{DEBUG};
+							Logger($config_options,"don't know what to do with " . $token->tag ,"CRIT");
 						}
 					}
 					last if ( ($token->tag =~ /Actions/) );
-				} 
+				} # end inner while
 			} # end Action If
 		} # end While
 	
@@ -703,7 +706,7 @@ sub AddTextElement {
 		DeTokenize($config_options,\$string,$mediainfo,$movie_xml,$template_xml);
 	}
 
-	Logger($config_options,"Font Family=$font_hash->{Family}\tsize=$font_hash->{Size}","DEBUG") if $config_options->{DEBUG};
+	Logger($config_options,"Font Family=$font_hash->{Family}\tsize=$font_hash->{Size}","DEBUG");
 	my @text_attributes=$temp->QueryFontMetrics(text=>$string, fill=>$forecolor, font=>$font_hash->{Family}, pointsize=>$font_hash->{Size} ,antialias=>'True', gravity=>$gravity);
 	if ($text_attributes[4] > $token->attr->{Width} ) {
 		# time to wrap some text
@@ -712,6 +715,31 @@ sub AddTextElement {
 
 	$temp->Annotate(text=>$string, fill=>$forecolor, font=>$font_hash->{Family}, pointsize=>$font_hash->{Size} ,antialias=>'True', gravity=>$gravity);
 
+	while( defined( $token = $parser->get_token() ) ){
+		if ( ($token->is_tag) && ($token->is_end_tag) && ($token->tag =~ /TextElement/) ) {
+	 		last;
+		}
+		elsif ($token->tag =~ /Actions/ ) {
+			while( defined( $token = $parser->get_token() ) ){
+			# start applying effects to the image.
+				if ( ($token->tag =~ /DropShadow/i) && ($token->is_start_tag)  ) {
+					Logger($config_options,"Adding Shadow to $string","DEBUG");
+						$temp=DropShadow($config_options,$temp,
+							$token->attr->{Angle},
+							$token->attr->{Color},
+							$token->attr->{Distance},
+							$token->attr->{Opacity},
+							$token->attr->{Softness}
+						);
+				}
+				elsif ( ( $token->tag ) && ( $token->is_start_tag ) ) {
+					Logger($config_options,"don't know what to do with ".$token->tag ,"CRIT");
+				}
+				last if ( ($token->tag =~ /Actions/) );
+			} # end  inner While
+		} # end if
+	} # end outer While
+	
 	$base_image->Composite(image=>$temp, compose=>'src-atop', geometry=>$geometry, x=>$composite_x, y=>$composite_y);
 	undef $temp;
 }
@@ -769,7 +797,7 @@ sub DeTokenize {
 
 	return 1 unless ($$string =~ /%/) ;
 
-	Logger($config_options,"Detokenizing $$string","DEBUG") if $config_options->{DEBUG};
+	Logger($config_options,"Detokenizing $$string","DEBUG");
 
 	if ($$string =~ /\%COUNTRIES\%/ ) {
 		# determine Country information
@@ -812,7 +840,7 @@ sub DeTokenize {
 				$$string =~ s/\{TITLECASE\}//;
 			}
 			else {
-				Logger($config_options,"I have found a text modifier I don't recognize -- $1?","DEBUG") if $config_options->{DEBUG};
+				Logger($config_options,"I have found a text modifier I don't recognize -- $1?","DEBUG");
 			}
 		}
 	}
@@ -822,9 +850,20 @@ sub DeTokenize {
 		$$string =~ s/\%DURATIONTEXT\%/$rep/;
 	}
 	
+	if ($$string =~ /\%VIDEORESOLUTIONTEXT\%/) {
+		my $rep = (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :sprintf("%sx%s",$media_info->{Mediainfo}->{File}->{track}->[1]->{Width},$media_info->{Mediainfo}->{File}->{track}->[1]->{Height});
+		$rep =~ s/pixels//g;
+		$$string =~ s/\%VIDEORESOLUTIONTEXT\%/$rep/;
+	}
+	
 	if ($$string =~ /\%FRAMERATETEXT\%/) {
 		my $rep = (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[1]->{Frame_rate};
 		$$string =~ s/\%FRAMERATETEXT\%/$rep/;
+	}
+
+	if ($$string =~ /\%AUDIOCODECTEXT\%/) {
+		my $rep = (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[2]->{Codec_ID};
+		$$string =~ s/\%AUDIOCODECTEXT\%/$rep/;
 	}
 
 	if ($$string =~ /\%ASPECTRATIOTEXT\%/) {
@@ -1038,12 +1077,12 @@ sub DeTokenize {
 		# fix the source, it will come in Window Path Format, switch it to Unix
 		$$string =~ s/\%PATH\%/$config_options->{Template_Path}/;
 		$$string =~ tr |\\|/|;
-		Logger($config_options,"Path expanded -> $$string","DEBUG") if $config_options->{DEBUG};
+		Logger($config_options,"Path expanded -> $$string","DEBUG");
 	}
 
 	if ($$string =~ /\%.+\%/ ) {
 		# add some color so this stands out
-		Logger($config_options,"Unable to Detokenize -> $$string","ERROR") if $config_options->{DEBUG};
+		Logger($config_options,"Unable to Detokenize -> $$string","ERROR");
 		return 0;
 	} 
 	return 1;
@@ -1081,12 +1120,12 @@ sub generate_moviesheet {
 
 	while( defined( my $token = $parser->get_token() ) ){
     if ( ($token->tag =~ /ImageDrawTemplate/ ) && ($token->is_start_tag) ) {
-     	Logger($config_options,"Starting Moviesheet Generation","DEBUG") if $config_options->{DEBUG};
+     	Logger($config_options,"Starting Moviesheet Generation","DEBUG");
     }
 
     if ( ($token->tag eq "Canvas") && ($token->is_start_tag) ) {
      	my $msg=sprintf("create a canvas of width=%d and height=%d\n",$token->attr->{Width},$token->attr->{Height});
-		 	Logger($config_options,$msg,"DEBUG")if $config_options->{DEBUG};
+		 	Logger($config_options,$msg,"DEBUG");
 		# Create a Canvas
 		my $geometry=sprintf("%dx%d",$token->attr->{Width},$token->attr->{Height});
 		$moviesheet=Image::Magick->new(size=>$geometry); # invoke new image
@@ -1095,13 +1134,13 @@ sub generate_moviesheet {
 
 		# add an image element to the canvas
     if ( ($token->tag eq "ImageElement") && ($token->is_start_tag)  ) {
-      Logger($config_options,"ImageElement","DEBUG") if $config_options->{DEBUG};
+      Logger($config_options,"ImageElement ".$token->attr->{Name},"DEBUG");
 			AddImageElement($config_options,$movie_xml,$mediainfo,$moviesheet,$token,$parser,$template_xml);
     }
 
 		# add a text element to the canvas
     if ( ($token->tag eq "TextElement") && ($token->is_start_tag)  ) {
-      Logger($config_options,"TextElement","DEBUG") if $config_options->{DEBUG};
+      Logger($config_options,"TextElement ".$token->attr->{Name},"DEBUG");
 			AddTextElement($config_options,$movie_xml,$mediainfo,$moviesheet,$token,$parser,$template_xml);
     }
 	}
@@ -1172,13 +1211,13 @@ sub GetTmdbID {
 	$ua->timeout(10);
 	$ua->env_proxy;
 
-	Logger($config_options,"http://api.themoviedb.org/2.1/Movie.search/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$movie_name","DEBUG") if $config_options->{DEBUG};
+	Logger($config_options,"http://api.themoviedb.org/2.1/Movie.search/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$movie_name","DEBUG");
 	my $response = $ua->get("http://api.themoviedb.org/2.1/Movie.search/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$movie_name");
 	my $xml_ob = new XML::Bare(text => $response->decoded_content );
 	my $xml_root=$xml_ob->simple();
 
 	if ( $xml_root->{OpenSearchDescription}->{'opensearch:totalResults'} > 1 ) {
-		Logger($config_options,"Multiple movie entries found for $movie_name\n\tthis can be fixed by adding the string tmdb_id=<the ID> to the filename\n\ti.e. 21.avi becomes 21tmdb=8065.avi to ensure we get the Kevin Spacey one","WARN") if $config_options->{DEBUG};
+		Logger($config_options,"Multiple movie entries found for $movie_name\n\tthis can be fixed by adding the string tmdb_id=<the ID> to the filename\n\ti.e. 21.avi becomes 21tmdb=8065.avi to ensure we get the Kevin Spacey one","WARN");
 		$tmdb_id=$xml_root->{OpenSearchDescription}->{movies}->{movie}->[0]->{id};
 	}
 	else {
@@ -1199,7 +1238,7 @@ sub GetMediaDetails {
 	$ua->timeout(10);
 	$ua->env_proxy;
 
-	Logger($config_options,"http://api.themoviedb.org/2.1/Movie.getInfo/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$tmdb_id","DEBUG") if $config_options->{DEBUG};
+	Logger($config_options,"http://api.themoviedb.org/2.1/Movie.getInfo/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$tmdb_id","DEBUG");
 	my $response = $ua->get("http://api.themoviedb.org/2.1/Movie.getInfo/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$tmdb_id");
 	my $xml_data=decode_entities($response->decoded_content);
 	my $xml_ob = new XML::Bare(text => $xml_data );
@@ -1268,7 +1307,7 @@ sub ScanMovieDir {
  
   foreach my $name (@names){
     if ( -d $name && ($config_options->{RECURSE} == 1) ){                     # is this a directory?
-			Logger($config_options,"Entering Directory $name","DEBUG") if $config_options->{DEBUG}; 
+			Logger($config_options,"Entering Directory $name","DEBUG");
       ScanMovieDir($config_options,$name);
       next;
     }
@@ -1276,8 +1315,8 @@ sub ScanMovieDir {
 			my $moviesheet;
 			my $thumbnail;
 			my $actual_file_name = &cwd."/$name";
-			Logger($config_options,"Processing $actual_file_name as a movie","DEBUG") if $config_options->{DEBUG};
-			Logger($config_options,"Creating a moviesheet for $name","INFO") if $config_options->{DEBUG};
+			Logger($config_options,"Processing $actual_file_name as a movie","DEBUG");
+			Logger($config_options,"Creating a moviesheet for $name","INFO");
 
 			
 			my $short_name=$actual_file_name;
@@ -1295,12 +1334,12 @@ sub ScanMovieDir {
 
 				# start the movie sheet generation
 				$moviesheet=generate_moviesheet($config_options, $xml_root, $mediainfo);
-				Logger($config_options,"Writing ${actual_file_name}_sheet.jpg","INFO") if $config_options->{DEBUG} ;
+				Logger($config_options,"Writing ${actual_file_name}_sheet.jpg","INFO");
 				$moviesheet->Write("${actual_file_name}_sheet.jpg");
 
 				# generate thumbnail
 				$thumbnail=grab_thumbnail($xml_root);
-				Logger($config_options,"Writing thumbnail","INFO") if $config_options->{DEBUG} ;
+				Logger($config_options,"Writing thumbnail","INFO");
 				$thumbnail->Write("$short_name.jpg");
 			}
   	}
@@ -1313,7 +1352,7 @@ sub Main {
 	my $config_options=shift;
 
 	# confirm that the movie directory and template file exist
-	unless (-e $config_options->{TEMPLATE}) {
+	unless (-e $config_options->{TEMPLATE} && -f $config_options->{TEMPLATE} ) {
 		Logger($config_options,"Template file '$config_options->{TEMPLATE}' does not exist!!","CRIT");
 		exit -1;
 	}
@@ -1329,9 +1368,7 @@ sub Main {
 	# we need to make sure we can load the file case insensitively.
 	my @names = File::Finder->in($config_options->{Template_Path}."/..");
 	$config_options->{names}=\@names;
-
 	ScanMovieDir($config_options,$config_options->{MOVIEDIR});
-	
 }
 
 my %config_options;
@@ -1364,5 +1401,7 @@ open (FD, $config_options{CONF_FILE}) or die "Unable to open config file $config
 		}
 	}
 close FD;
+$config_options{LOGFILE} = ($config_options{LOGFILE} eq "") ? "/var/tmp/thumbscanner.log" : $config_options{LOGFILE};
+unlink $config_options{LOGFILE};
 
 Main(\%config_options);

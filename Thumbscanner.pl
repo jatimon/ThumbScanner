@@ -15,6 +15,7 @@ use Math::Trig;
 use XML::Bare;
 use LWP::UserAgent;
 use HTML::Entities;
+use IO::Prompt;
 
 #---------------------------------------------------------------------------------------------
 #
@@ -325,7 +326,6 @@ sub PerspectiveView {
 	return Skew($config_options,$orig_image, $angle, "True", "Vertical", "Trapezoid");
 }
 
-
 sub RoundCorners {
 	my $config_options=shift;
 	my $orig_image=shift;
@@ -483,7 +483,10 @@ sub AddImageElement {
 
 			if ( $sourceData =~ /^http/i ) {
 				Logger($config_options,"grabbing $sourceData from the web","INFO");
-    		$temp->Read($sourceData);
+    		if ($temp->Read($sourceData)) {
+					Logger($config_options,"Unable to load image at $sourceData","CRIT");
+					next;
+				}
 			}
 			else {
 			my @newSource = grep {/$sourceData/i} @{$config_options->{names}};
@@ -697,7 +700,6 @@ sub AddTextElement {
 
 	# create the text element image contents
 	my $forecolor=GetColor($token->attr->{ForeColor});
-	my $strokecolor=GetColor($token->attr->{StrokeColor});
 	my $font_hash=ParseFont($config_options,$token->attr->{Font});
 	my $gravity=GetGravity($token->attr->{TextAlignment} );
 
@@ -713,7 +715,21 @@ sub AddTextElement {
 		$string=TextWrap($string, $token->attr->{Width}, $font_hash->{Family}, $font_hash->{Size})
 	}
 
-	$temp->Annotate(text=>$string, fill=>$forecolor, font=>$font_hash->{Family}, pointsize=>$font_hash->{Size} ,antialias=>'True', gravity=>$gravity);
+	my %text_attributes=(
+			text			=> $string,
+			fill			=> $forecolor,
+			font			=> $font_hash->{Family},
+			pointsize	=> $font_hash->{Size},
+			antialias	=> 'true',
+			gravity		=> $gravity,
+			);
+
+	if ($token->attr->{StrokeWidth} > 0) {
+		$text_attributes{strokewidth} = $token->attr->{StrokeWidth};
+		$text_attributes{stroke} = GetColor($token->attr->{StrokeColor});
+	}
+
+	$temp->Annotate(%text_attributes);
 
 	while( defined( $token = $parser->get_token() ) ){
 		if ( ($token->is_tag) && ($token->is_end_tag) && ($token->tag =~ /TextElement/) ) {
@@ -731,6 +747,18 @@ sub AddTextElement {
 							$token->attr->{Opacity},
 							$token->attr->{Softness}
 						);
+				}
+				elsif ( ($token->tag =~ /GlassTable/i) && ($token->is_start_tag)  ) {
+					Logger($config_options,"Glasstabling $sourceData","DEBUG");
+					$temp=GlassTable($config_options,$temp,
+						$token->attr->{ReflectionLocationX},
+						$token->attr->{ReflectionLocationY},
+						$token->attr->{ReflectionOpacity}, 
+						$token->attr->{ReflectionPercentage});
+				}
+				elsif ( ($token->tag =~ /Stretch/i) && ($token->is_start_tag) ) {
+					Logger($config_options,"Stretching $sourceData","DEBUG");
+					$temp->Scale(height=>$token->attr->{Height}, width=>$token->attr->{Width} );
 				}
 				elsif ( ( $token->tag ) && ( $token->is_start_tag ) ) {
 					Logger($config_options,"don't know what to do with ".$token->tag ,"CRIT");
@@ -1124,7 +1152,7 @@ sub generate_moviesheet {
     }
 
     if ( ($token->tag eq "Canvas") && ($token->is_start_tag) ) {
-     	my $msg=sprintf("create a canvas of width=%d and height=%d\n",$token->attr->{Width},$token->attr->{Height});
+     	my $msg=sprintf("create a canvas of width=%d and height=%d",$token->attr->{Width},$token->attr->{Height});
 		 	Logger($config_options,$msg,"DEBUG");
 		# Create a Canvas
 		my $geometry=sprintf("%dx%d",$token->attr->{Width},$token->attr->{Height});
@@ -1193,6 +1221,24 @@ sub clean_name {
 	return $movie_name;
 }
 
+sub Interactive {
+# present the user with a selection of which movie is correct.
+	my $config_options=shift;
+	my $xml_root=shift;
+	my $file_name=shift;
+
+	my %menu;
+
+  foreach (@{ $xml_root->{OpenSearchDescription}->{movies}->{movie} } ) {
+		my $key="$_->{name} -- $_->{overview}";
+		$menu{substr($key,0,80)}=$_->{id};
+  }
+
+	 prompt ("\nPlease identify which movie entry $file_name is:", -menu=>\%menu);
+	 return $_;
+}
+
+
 sub GetTmdbID {
 # passed in the file name, clean it and return the tmdb_id
 	my $config_options=shift;
@@ -1218,7 +1264,13 @@ sub GetTmdbID {
 
 	if ( $xml_root->{OpenSearchDescription}->{'opensearch:totalResults'} > 1 ) {
 		Logger($config_options,"Multiple movie entries found for $movie_name\n\tthis can be fixed by adding the string tmdb_id=<the ID> to the filename\n\ti.e. 21.avi becomes 21tmdb=8065.avi to ensure we get the Kevin Spacey one","WARN");
-		$tmdb_id=$xml_root->{OpenSearchDescription}->{movies}->{movie}->[0]->{id};
+		# go interactive if the flag is set
+		if ($config_options->{INTERACTIVE} ) {
+			$tmdb_id=Interactive($config_options, $xml_root, $file_name);
+		}
+		else {
+			$tmdb_id=$xml_root->{OpenSearchDescription}->{movies}->{movie}->[0]->{id};
+		}
 	}
 	else {
 		$tmdb_id=$xml_root->{OpenSearchDescription}->{movies}->{movie}->{id};
@@ -1376,13 +1428,15 @@ my $debug="WARN";
 my $overwrite=0;
 my $conf_file="engine.conf";
 my $recurse=0;
+my $interactive=0;
 my $help=0;
 
-my $results=GetOptions ("debug=s"			=> \$debug,
-												"overwrite"	=> \$overwrite,
-												"file=s"			=> \$conf_file,
-												"help"			=> \$help,
-												"recurse"		=> \$recurse);
+my $results=GetOptions ("debug=s"				=> \$debug,
+												"overwrite"			=> \$overwrite,
+												"file=s"				=> \$conf_file,
+												"help"					=> \$help,
+												"interactive"		=> \$interactive,
+												"recurse"				=> \$recurse);
 
 Usage if $help;
 
@@ -1391,6 +1445,7 @@ $config_options{DEBUG}=$debug;
 $config_options{OVERWRITE}=$overwrite;
 $config_options{CONF_FILE}=$conf_file;
 $config_options{RECURSE}=$recurse;
+$config_options{INTERACTIVE}=$interactive;
 
 # read in the options in the config file
 open (FD, $config_options{CONF_FILE}) or die "Unable to open config file $config_options{CONF_FILE}\n";
@@ -1403,5 +1458,9 @@ open (FD, $config_options{CONF_FILE}) or die "Unable to open config file $config
 close FD;
 $config_options{LOGFILE} = ($config_options{LOGFILE} eq "") ? "/var/tmp/thumbscanner.log" : $config_options{LOGFILE};
 unlink $config_options{LOGFILE};
+
+my $tmp_string=Dumper(\%config_options);
+Logger(\%config_options,$tmp_string,"DEBUG");
+
 
 Main(\%config_options);

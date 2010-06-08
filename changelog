@@ -8,6 +8,10 @@ v 0.4
 - added logging to a log file (LOGFILE attribute in engine.conf)
 - verify that Template.xml file exists.
 - text element %VIDEORESOLUTIONTEXT% and %AUDIOCODECTEXT%
+- added GlassTable to Text Elements
+- added Stretch to Text Elements
+- incorporated strokecolor and strokewidth where present in Text Elements
+- added an interactive option.  when multiple movies match the name
 
 
 v 0.3

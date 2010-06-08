@@ -45,6 +45,43 @@ use File::Finder;
 use XML::Bare;
 use LWP::UserAgent;
 use HTML::Entities;
+use IO::Prompt;
 
-All of these with the exception of Image::Magick I installed using the perl CPAN shell, i.e. perl -MCPAN -e shell  The just type install XML::Bare for example.  Image::Magick I installed with apt, apt-get install perlmagick
+All of these with the exception of Image::Magick I installed using the perl CPAN shell.
+Image::Magick I installed with apt, apt-get install perlmagick
+
+CPAN method
+===
+
+sudo perl -MCPAN -e shell (to get an interactive CPAN shell)
+
+Interactive Example:
+perl -MCPAN -e shell
+install XML::TokeParser
+
+-OR-
+
+sudo perl -MCPAN -e 'install XML::TokeParser'
+
+you could just cut and paste this bit to do the perl module installations.
+
+sudo perl -MCPAN -e 'install XML::TokeParser'
+sudo perl -MCPAN -e 'install File::Finder'
+sudo perl -MCPAN -e 'install XML::Bare'
+sudo perl -MCPAN -e 'install LWP::UserAgent'
+sudo perl -MCPAN -e 'install HTML::Entities'
+sudo perl -MCPAN -e 'install IO::Prompt'
+
+
+Manual installation
+===
+
+To manually install a Perl module:
+
+1. Download the Perl module from CPAN or other site.
+2. Extract the tarball.
+3. Run perl Makefile.PL
+4. Run make
+5. Run make test
+6. Run make install
 

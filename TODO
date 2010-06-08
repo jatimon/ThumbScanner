@@ -5,12 +5,14 @@
 - figure out subtitles.
 - add more than just one source for movie information.
 - perhaps a script to add fonts to imagemagick
-- perhaps a script to install perl modules
 - fix for .iso files
-- fix downloading of .png files.  fails
 - ensure the TextElement Actions are followed
-- FONTS.  need to figure out why such a large difference in how Windows fonts are rendered
-- interactive mode for selecting specific movie in multiple hit instances.
+- add options for Thumbgen like extra sheets
+			Thumbnail - $M\$N for the small Thumbnail (Cover)
+			Extra Thumbnail - folder for the big Thumbnail
+			Movie Information - Used by tvixie2playonhd to create gernes and to make rss files on the Playon!HD
+			Main Sheet - $M\$N$E_sheet - Main sheet for the Movie jukebox on the Playon!HD
+			Extra Sheet - Used in the browser screen of the Playon!HD
 
 
 ------------------------

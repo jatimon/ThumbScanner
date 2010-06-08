@@ -5,9 +5,6 @@ Contact: 	john.a.timon@gmail.com
 What is it?
 ===========
 
-This is a very preliminary version of a script that will scrape movie posters and thumbnails
-and using DRIBBLER's type template files generate Moviesheets for wdtv.
-
 I wrote this script to automate the generation of moviesheets and thumbnails.  It can be
 put into cron and run on a daily basis.  It will find movies that do not have thumbnails 
 and pull down a thumbnail image and basic backdrop image from www.themoviedb.org using
@@ -28,6 +25,7 @@ Usage: Thumbscanner [options]
   -d  --debug             print debugging information values < CRIT | ERROR | WARN | INFO | DEBUG >
   -f  --file              use a specific config file, default is engine.conf
   -o  --overwrite         overwrite existing moviesheets and thumbnails
+	-i	--interactive				prompt user to identify movie when there are multiple hits
 
 Example:
   Thumbscanner -r -d INFO -o
@@ -59,6 +57,7 @@ Math::Trig
 XML::Bare
 LWP::UserAgent
 HTML::Entities
+IO::Prompt
 
 Most of these are Core Modules, however you will need to install
 
@@ -68,6 +67,7 @@ File::Finder
 XML::Bare
 LWP::UserAgent
 HTML::Entities
+IO::Prompt
 
 
 - Template files.  It is built against Dribblers Templates.

@@ -1,3 +1,6 @@
+v 0.5
+- added imdb as a provider and defined a basis for future providers
+
 v 0.4
 - implemented the ability to recursivly scan subdirectories of the main movie directory, this is provided by the -r command line option
 - changed the name of the script to something more meaningful i.e.  Thumbscanner.pl

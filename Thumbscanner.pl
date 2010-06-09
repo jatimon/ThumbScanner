@@ -16,6 +16,7 @@ use XML::Bare;
 use LWP::UserAgent;
 use HTML::Entities;
 use IO::Prompt;
+use IMDB::Film;
 
 #---------------------------------------------------------------------------------------------
 #
@@ -429,7 +430,7 @@ sub AddImageElement {
 # take the base image and laydown a composite on top
 # all of the composite information will be in the composite_data variable
 	my $config_options=shift;
-	my $movie_xml=shift;
+	my $provider_hash=shift;
 	my $mediainfo=shift;
 	my $base_image=shift;
 	my $token=shift;
@@ -443,8 +444,8 @@ sub AddImageElement {
 		if ( $sourceData =~ /\%RATINGSTARS\%/ ) {
 			# this token is part of the Settings token in the template.xml file
 			my $source=$template_xml->{Template}->{Settings}->{Rating}->{FileName}->{value};
-			next unless DeTokenize($config_options,\$source,$mediainfo,$movie_xml,$template_xml);
-			my $rating=$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{rating}->{value};
+			next unless DeTokenize($config_options,\$source,$mediainfo,$provider_hash,$template_xml);
+			my $rating=$provider_hash->{RATING};
     	$temp->Read($source);
 			my ($width, $height) = $temp->Get('columns', 'rows');
 			# single star
@@ -474,7 +475,7 @@ sub AddImageElement {
 
 		}
 		else {
-			next unless DeTokenize($config_options,\$sourceData,$mediainfo,$movie_xml,$template_xml);
+			next unless DeTokenize($config_options,\$sourceData,$mediainfo,$provider_hash,$template_xml);
 
 			if ($sourceData eq "") {
 				Logger($config_options,"I was unable to find information on the web for this movie","CRIT");
@@ -680,7 +681,7 @@ sub AddTextElement {
 # 2) those without
 
 	my $config_options=shift;
-	my $movie_xml=shift;
+	my $provider_hash=shift;
 	my $mediainfo=shift;
 	my $base_image=shift;
 	my $token=shift;
@@ -705,7 +706,7 @@ sub AddTextElement {
 
 	$string=$token->attr->{Text};
 	if ($string =~ /\%.+\%/) {
-		DeTokenize($config_options,\$string,$mediainfo,$movie_xml,$template_xml);
+		DeTokenize($config_options,\$string,$mediainfo,$provider_hash,$template_xml);
 	}
 
 	Logger($config_options,"Font Family=$font_hash->{Family}\tsize=$font_hash->{Size}","DEBUG");
@@ -820,7 +821,7 @@ sub DeTokenize {
 	my $config_options=shift;
 	my $string=shift;  # the string where I replace the token
 	my $media_info=shift;
-	my $movie_xml=shift;
+	my $provider_hash=shift;
 	my $template_xml=shift;
 
 	return 1 unless ($$string =~ /%/) ;
@@ -828,13 +829,7 @@ sub DeTokenize {
 	Logger($config_options,"Detokenizing $$string","DEBUG");
 
 	if ($$string =~ /\%COUNTRIES\%/ ) {
-		# determine Country information
-		if (  ref($movie_xml->{OpenSearchDescription}->{movies}->{movie}->{countries}->{country}) =~ /hash/i) {
-			$$string =~ s/\%COUNTRIES\%/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{countries}->{country}->{name}->{value}/;
-		}
-		else {
-			$$string =~ s/\%COUNTRIES\%/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{countries}->{country}->[0]->{name}->{value}/;
-		}
+		$$string =~ s/\%COUNTRIES\%/$provider_hash->{COUNTRIES}/;
 	}
 
 #if ($$string =~ /\%CERTIFICATION\%/ ) {
@@ -847,13 +842,15 @@ sub DeTokenize {
 #}
 
 	if ($$string =~ /\%YEAR\%/ ) {
-		$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{released}->{value} =~ /.*(\d\d\d\d).*/;
-		my $year=$1;
-		$$string =~ s/\%YEAR\%/ $year/;
+		$$string =~ s/\%YEAR\%/$provider_hash->{YEAR}/;
+	}
+
+	if ($$string =~ /\%MPAA\%/ ) {
+		$$string =~ s/\%MPAA\%/$provider_hash->{MPAA}/;
 	}
 
 	if ($$string =~ /\%.*TITLE\%/ ) {
-		$$string =~ s/\%.*TITLE\%/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{name}->{value}/;
+		$$string =~ s/\%.*TITLE\%/$provider_hash->{TITLE}/;
 		if ( $$string =~ /\{(.+)\}/ ) {
 			if ( $1 eq "UPPER" ) {
 				$$string=uc($$string);
@@ -868,7 +865,7 @@ sub DeTokenize {
 				$$string =~ s/\{TITLECASE\}//;
 			}
 			else {
-				Logger($config_options,"I have found a text modifier I don't recognize -- $1?","DEBUG");
+				Logger($config_options,"I have found a text modifier I don't recognize -- $1?","CRIT");
 			}
 		}
 	}
@@ -921,67 +918,38 @@ sub DeTokenize {
 	}
 
 	if ($$string =~ /\%RATING\%/ ) {
-		$$string =~ s/\%RATING\%/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{rating}->{value}/;
+		$$string =~ s/\%RATING\%/$provider_hash->{RATING}/;
 	}
 
 	if ($$string =~ /\%PLOT\%/ ) {
-		$$string =~ s/\%PLOT\%/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{overview}->{value}/;
+		$$string =~ s/\%PLOT\%/$provider_hash->{PLOT}/;
 	}
 
 	if ($$string =~ /\%STUDIOS\%/ ) {
-		# determine Studio information
-		if (  ref($movie_xml->{OpenSearchDescription}->{movies}->{movie}->{studios}->{studio}) =~ /hash/i) {
-			$$string =~ s/\%STUDIOS\%/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{studios}->{studio}->{name}->{value}/;
-		}
-		else {
-			$$string =~ s/\%STUDIOS\%/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{studios}->{studio}->[0]->{name}->{value}/;
-		}
+		$$string =~ s/\%STUDIOS\%/$provider_hash->{STUDIOS}/;
 	}
     
-  if ( $$string =~ /\%FANART.\%/ ) {
-    my @fanart;
-    # grab the fanart image from themoviedb
-    foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
-      push ( @fanart, $_->{url}->{value}) if ( ($_->{size}->{value} =~ /original/i) && ($_->{type}->{value} =~ /backdrop/i) );
-    }
-		$$string =~ /(\d)/;
-		my $fan_art_number=$1;
-    if (scalar (@fanart) > $fan_art_number) {
-      $$string =~ s/\%FANART.\%/$fanart[$fan_art_number]/;
-    }
+  if ( $$string =~ /\%FANART1\%/ ) {
+    $$string =~ s/\%FANART1\%/$provider_hash->{FANART1}/;
+		Logger($config_options,"Grabbing FANART1 $provider_hash->{FANART1}","DEBUG");
 	}
 
+  if ( $$string =~ /\%FANART2\%/ ) {
+    $$string =~ s/\%FANART2\%/$provider_hash->{FANART2}/;
+		Logger($config_options,"Grabbing FANART2 $provider_hash->{FANART2}","DEBUG");
+	}
+
+  if ( $$string =~ /\%FANART3\%/ ) {
+    $$string =~ s/\%FANART3\%/$provider_hash->{FANART3}/;
+		Logger($config_options,"Grabbing FANART3 $provider_hash->{FANART3}","DEBUG");
+	}
     
   if ( $$string =~ /\%BACKGROUND\%/ ) {
-    my @backdrops;
-    # grab the backdrop image from themoviedb
-    foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
-      push ( @backdrops, $_->{url}->{value}) if ( ($_->{size}->{value} =~ /original/i) && ($_->{type}->{value} =~ /backdrop/i) );
-    }
-    if (scalar (@backdrops) > 1) {
-      # pick one randomly
-      # $image_url=$backdrops[ rand @backdrops ];
-      $$string =~ s/\%BACKGROUND\%/$backdrops[0]/;
-    }
-    else {
-      $$string =~ s/\%BACKGROUND\%/$backdrops[0]/;
-    }
+    $$string =~ s/\%BACKGROUND\%/$provider_hash->{BACKGROUND}/;
 	}
 
   if ( $$string =~ /\%COVER\%/ ) {
-    my @covers;
-    # grab the cover image from themoviedb
-    foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
-      push ( @covers, $_->{url}->{value}) if ( ($_->{size}->{value} =~ /mid/i) && ($_->{type}->{value} =~ /poster/i) );
-    }
-    if (scalar (@covers) > 1) {
-      # pick one randomly
-      # $image_url=$covers[ rand @covers ];
-      $$string =~ s/\%COVER\%/$covers[0]/;
-    }
-    else {
-      $$string =~ s/\%COVER\%/$covers[0]/;
-    }
+    $$string =~ s/\%COVER\%/$provider_hash->{COVER}/;
   }
 
 	if ($$string =~ /\%VIDEOFORMAT\%/ and (ref($media_info->{Mediainfo}->{File}->{track}) eq "ARRAY" ) ) {
@@ -1045,28 +1013,22 @@ sub DeTokenize {
 	}
 
 	if ($$string =~ /\%ACTORS\%/ ) {
-		my @actors;
-	  foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{cast}->{person} } ) {
-      push (@actors, $_->{name}->{value}) if lc($_->{job}->{value}) eq "actor" ;
- 		}   
-	
+		my @actors=@{$provider_hash->{ACTORS}};
+
+		print "@actors\n";
 		# we have an array of every director in this movie.  the template defines a max and a join character
 		my $max=$template_xml->{Template}->{Settings}->{Actors}->{MaximumValues}->{value};
 		my $join_char=$template_xml->{Template}->{Settings}->{Actors}->{Separator}->{value};
 
 		# truncate the array if necessary
 		$#actors=($max-1) if $#actors>$max;
-
 		my $rep=join($join_char,@actors);
 		$$string =~ s/\%ACTORS\%/$rep/;
 	}
 
 	if ($$string =~ /\%DIRECTORS\%/ ) {
-		my @directors;
-	  foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{cast}->{person} } ) {
-      push (@directors, $_->{name}->{value}) if lc($_->{job}->{value}) eq "director" ;
- 		}   
-	
+		my @directors=$provider_hash->{DIRECTORS};
+		
 		# we have an array of every director in this movie.  the template defines a max and a join character
 		my $max=$template_xml->{Template}->{Settings}->{Directors}->{MaximumValues}->{value};
 		my $join_char=$template_xml->{Template}->{Settings}->{Directors}->{Separator}->{value};
@@ -1079,15 +1041,7 @@ sub DeTokenize {
 	}
 
 	if ($$string =~ /\%GENRES\%/ ) {
-		my @genres;
-		if (  ref($movie_xml->{OpenSearchDescription}->{movies}->{movie}->{categories}->{category} ) =~ /hash/i) {
-      push (@genres, $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{categories}->{category}->{name}->{value}) if lc($movie_xml->{OpenSearchDescription}->{movies}->{movie}->{categories}->{category}->{name}->{value}) eq "genre" ;
-		}
-		else {
-			foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{categories}->{category} } ) {
-      	push (@genres, $_->{name}->{value}) if lc($_->{type}->{value}) eq "genre" ;
-    	}
-		}
+		my @genres=$provider_hash->{GENRES};
 
     # we have an array of every genre type.  the template defines a max and a join character
     my $max=$template_xml->{Template}->{Settings}->{Genres}->{MaximumValues}->{value};
@@ -1119,17 +1073,11 @@ sub DeTokenize {
 
 sub grab_thumbnail {
 # grab a thumbnail image for the movie
-	my $movie_xml=shift;
-
-  my @covers;
+	my $provider_hash=shift;
 	my $thumbnail;
-  # grab the cover image from themoviedb
-  foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
-    push ( @covers, $_->{url}->{value}) if ( ($_->{size}->{value} =~ /mid/i) && ($_->{type}->{value} =~ /poster/i) );
-  }
 
 	$thumbnail=Image::Magick->new(magick=>'png');
-	$thumbnail->Read($covers[0]);
+	$thumbnail->Read($provider_hash->{COVER});
 
 	return $thumbnail;
 }
@@ -1137,7 +1085,7 @@ sub grab_thumbnail {
 sub generate_moviesheet {
 # takes as input a movie data hash, a template file and the filenamed array
 	my $config_options=shift;
-	my $movie_xml=shift;
+	my $provider_hash=shift;
 	my $mediainfo=shift;
 
 	my $parser = XML::TokeParser->new( $config_options->{TEMPLATE} );
@@ -1163,13 +1111,13 @@ sub generate_moviesheet {
 		# add an image element to the canvas
     if ( ($token->tag eq "ImageElement") && ($token->is_start_tag)  ) {
       Logger($config_options,"ImageElement ".$token->attr->{Name},"DEBUG");
-			AddImageElement($config_options,$movie_xml,$mediainfo,$moviesheet,$token,$parser,$template_xml);
+			AddImageElement($config_options,$provider_hash,$mediainfo,$moviesheet,$token,$parser,$template_xml);
     }
 
 		# add a text element to the canvas
     if ( ($token->tag eq "TextElement") && ($token->is_start_tag)  ) {
       Logger($config_options,"TextElement ".$token->attr->{Name},"DEBUG");
-			AddTextElement($config_options,$movie_xml,$mediainfo,$moviesheet,$token,$parser,$template_xml);
+			AddTextElement($config_options,$provider_hash,$mediainfo,$moviesheet,$token,$parser,$template_xml);
     }
 	}
 	return $moviesheet;
@@ -1280,11 +1228,51 @@ sub GetTmdbID {
 	return $tmdb_id;
 }	
 
-sub GetMediaDetails {
+sub GetMediaDetails_imdb {
+# grab the xml data for this specific movie from imdb
+	my %movie_info;
+
+	my $movie_title="300";
+	
+	my $movie = new IMDB::Film(crit => $movie_title);
+	
+	my %release=map{$_->{country} => $_->{date}} @{$movie->release_dates()};
+	my @cert = $movie->certifications();
+	my @directors=map {$_->{name}} @{$movie->directors()};
+	my @cast=map {$_->{name}} @{$movie->cast()} ;
+	my @countries=@{$movie->country()};
+	
+	# Movie_info hash
+	
+	$movie_info{BACKGROUND}= 'http://i3.themoviedb.org/backdrops/f8d/4bc919ea017a3c57fe009f8d/scream-original.jpg';
+	$movie_info{FANART1}= 'http://i3.themoviedb.org/backdrops/f8d/4bc919ea017a3c57fe009f8d/scream-original.jpg';
+	$movie_info{FANART2}= 'http://i3.themoviedb.org/backdrops/f8d/4bc919ea017a3c57fe009f8d/scream-original.jpg';
+	$movie_info{FANART3}= 'http://i3.themoviedb.org/backdrops/f8d/4bc919ea017a3c57fe009f8d/scream-original.jpg';
+	$movie_info{COVER}= $movie->cover();
+	$movie_info{TITLE}= $movie->title();
+	$movie_info{ORIGINALTITLE}= '';
+	$movie_info{PLOT}= $movie->full_plot();
+	$movie_info{YEAR}= $movie->year();
+	$movie_info{ACTORS}= \@cast;
+	$movie_info{GENRES}= @{ $movie->genres() };
+	$movie_info{DIRECTORS}= \@directors;
+	$movie_info{MPAA}= $movie->mpaa_info();
+	$movie_info{COUNTRIES}= $countries[0];
+	$movie_info{STUDIOS}= $movie->company();
+	$movie_info{RATING}= $movie->rating();
+	$movie_info{CERTIFICATIONTEXT}= $cert[0]->{Canada};
+	$movie_info{RELEASEDATE}= $release{Canada};
+		
+	return \%movie_info;
+}
+
+
+
+sub GetMediaDetails_tmdb {
 # grab the xml data for this specific movie from themoviedb.org
-# store it in a xml object so we can pull data from it as we build the moviesheet
 	my $config_options=shift;
 	my $tmdb_id=shift;
+	my %provider_hash;
 
 	my $ua = LWP::UserAgent->new;
 	$ua->timeout(10);
@@ -1294,9 +1282,94 @@ sub GetMediaDetails {
 	my $response = $ua->get("http://api.themoviedb.org/2.1/Movie.getInfo/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$tmdb_id");
 	my $xml_data=decode_entities($response->decoded_content);
 	my $xml_ob = new XML::Bare(text => $xml_data );
-	my $xml_root=$xml_ob->parse();
+	my $movie_xml=$xml_ob->parse();
 
-	return $xml_root;
+  my @backdrops;
+   # grab the backdrop image from themoviedb
+   foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
+     push ( @backdrops, $_->{url}->{value}) if ( ($_->{size}->{value} =~ /original/i) && ($_->{type}->{value} =~ /backdrop/i) );
+   }
+   if (scalar (@backdrops) > 1) {
+     # pick one randomly
+     # $image_url=$backdrops[ rand @backdrops ];
+     $provider_hash{BACKGROUND}=$backdrops[0];
+   }
+   else {
+     $provider_hash{BACKGROUND}=$backdrops[0];
+  }
+
+  my @fanart;
+  # grab the fanart image from themoviedb
+   foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
+     push ( @fanart, $_->{url}->{value}) if ( ($_->{size}->{value} =~ /original/i) && ($_->{type}->{value} =~ /backdrop/i) );
+   }
+	$provider_hash{FANART1}=$fanart[0];
+	$provider_hash{FANART2}=$fanart[1];
+	$provider_hash{FANART3}=$fanart[2];
+
+	$provider_hash{ORIGINALTITLE}= '';
+
+  my @covers;
+  # grab the cover image from themoviedb
+  foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
+    push ( @covers, $_->{url}->{value}) if ( ($_->{size}->{value} =~ /mid/i) && ($_->{type}->{value} =~ /poster/i) );
+  }
+  if (scalar (@covers) > 1) {
+    # pick one randomly
+    # $image_url=$covers[ rand @covers ];
+    $provider_hash{COVER}=$covers[0];
+  }
+  else {
+    $provider_hash{COVER}=$covers[0];
+  }
+
+	$provider_hash{TITLE}= $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{name}->{value};
+	$provider_hash{PLOT}= $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{overview}->{value};
+	$provider_hash{ACTORS}= @{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{cast}->{person} };
+	$provider_hash{RATING}=$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{rating}->{value};
+	$provider_hash{CERTIFICATIONTEXT}="";
+	$provider_hash{RELEASEDATE}="";
+
+	$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{released}->{value} =~ /.*(\d\d\d\d).*/;
+	my $year=$1;
+	$provider_hash{YEAR}= $year;
+	
+	my @genres;
+	if (  ref($movie_xml->{OpenSearchDescription}->{movies}->{movie}->{categories}->{category} ) =~ /hash/i) {
+     push (@genres, $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{categories}->{category}->{name}->{value}) if lc($movie_xml->{OpenSearchDescription}->{movies}->{movie}->{categories}->{category}->{name}->{value}) eq "genre" ;
+	}
+	else {
+		foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{categories}->{category} } ) {
+     	push (@genres, $_->{name}->{value}) if lc($_->{type}->{value}) eq "genre" ;
+   	}
+	}
+	$provider_hash{GENRES}= @genres;
+
+	my @directors;
+	foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{cast}->{person} } ) {
+    push (@directors, $_->{name}->{value}) if lc($_->{job}->{value}) eq "director" ;
+ 	}   
+	$provider_hash{DIRECTORS}= \@directors;
+
+	$provider_hash{MPAA}= "";
+
+	# determine Country information
+	if (  ref($movie_xml->{OpenSearchDescription}->{movies}->{movie}->{countries}->{country}) =~ /hash/i) {
+		$provider_hash{COUNTRIES}=$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{countries}->{country}->{name}->{value};
+	}
+	else {
+		$provider_hash{COUNTRIES}=$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{countries}->{country}->[0]->{name}->{value};
+	}
+
+	# determine Studio information
+	if (  ref($movie_xml->{OpenSearchDescription}->{movies}->{movie}->{studios}->{studio}) =~ /hash/i) {
+		$provider_hash{STUDIOS}=$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{studios}->{studio}->{name}->{value};
+	}
+	else {
+		$provider_hash{STUDIOS}=$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{studios}->{studio}->[0]->{name}->{value};
+	}
+
+	return \%provider_hash;
 }
 
 sub GetMediaInfo {
@@ -1373,24 +1446,37 @@ sub ScanMovieDir {
 			
 			my $short_name=$actual_file_name;
 			$short_name =~ s/\.\w+$//; # remove the trailing suffix
+			my $clean_name=clean_name($name);
 			if ( ($config_options->{OVERWRITE}) || !( -e "$short_name.jpg"))  {
-				my $tmdb_id=GetTmdbID($config_options,$name);
-				unless (defined($tmdb_id)) {
-					Logger($config_options,"unable to find movie data for $name","CRIT");
-					next;
+				my $provider_hash;
+			# depending on the value of PROVIDER call different functions to get movie data
+				if ($config_options->{PROVIDER} eq "themoviedb" ) {
+					my $tmdb_id=GetTmdbID($config_options,$name);
+					unless (defined($tmdb_id)) {
+						Logger($config_options,"unable to find movie data for $name","CRIT");
+						next;
+					}
+					# get more detailed information using the Movie.getInfo call
+					$provider_hash=GetMediaDetails_tmdb($config_options,$tmdb_id);
 				}
+				elsif ($config_options->{PROVIDER} eq "IMDB" ) {
+					$provider_hash=GetMediaDetails_imdb($config_options,$clean_name);
+				}
+				else {
+					Logger($config_options,"Undefined provider, $config_options->{PROVIDER}","CRIT");
+					exit -1;
+				}
+
 				# get the media_info hash
 				my $mediainfo=GetMediaInfo($config_options,$actual_file_name);
-				# get more detailed information using the Movie.getInfo call
-				my $xml_root=GetMediaDetails($config_options,$tmdb_id);
 
 				# start the movie sheet generation
-				$moviesheet=generate_moviesheet($config_options, $xml_root, $mediainfo);
+				$moviesheet=generate_moviesheet($config_options, $provider_hash, $mediainfo);
 				Logger($config_options,"Writing ${actual_file_name}_sheet.jpg","INFO");
 				$moviesheet->Write("${actual_file_name}_sheet.jpg");
 
 				# generate thumbnail
-				$thumbnail=grab_thumbnail($xml_root);
+				$thumbnail=grab_thumbnail($provider_hash);
 				Logger($config_options,"Writing thumbnail","INFO");
 				$thumbnail->Write("$short_name.jpg");
 			}
@@ -1461,6 +1547,5 @@ unlink $config_options{LOGFILE};
 
 my $tmp_string=Dumper(\%config_options);
 Logger(\%config_options,$tmp_string,"DEBUG");
-
 
 Main(\%config_options);

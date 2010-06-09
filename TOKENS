@@ -70,8 +70,3 @@
  %MOVIEPARENTFOLDER%					|	Current movie parent folder name 	Movies (for c:\Movies\Spread\Spread.2009.mkv)
  %PROVIDER%										| Where to pull movie information from  currently themoviedb.org
 
----- Command Line Option ----
- -d --debug										| debug (will probably add levels later)
- -o --overwrite								| overwrite, this will cause moviesheets to be genrated even if they already exist
- -f --file										| specify a non-standard config file
- -r --recurse									| look into subdirectories beneath  %MOVIEPARENTFOLDER%

@@ -1231,7 +1231,7 @@ sub Interactive {
 
   foreach (@{ $xml_root->{OpenSearchDescription}->{movies}->{movie} } ) {
 		my $key="$_->{name} -- $_->{overview}";
-		$menu{substr($key,0,80)}=$_->{id};
+		$menu{substr($key,0,90)}=$_->{id};
   }
 
 	 prompt ("\nPlease identify which movie entry $file_name is:", -menu=>\%menu);
@@ -1263,7 +1263,7 @@ sub GetTmdbID {
 	my $xml_root=$xml_ob->simple();
 
 	if ( $xml_root->{OpenSearchDescription}->{'opensearch:totalResults'} > 1 ) {
-		Logger($config_options,"Multiple movie entries found for $movie_name\n\tthis can be fixed by adding the string tmdb_id=<the ID> to the filename\n\ti.e. 21.avi becomes 21tmdb=8065.avi to ensure we get the Kevin Spacey one","WARN");
+		Logger($config_options,"Multiple movie entries found for $movie_name\n\tthis can be fixed by adding the string tmdb_id=<the ID> to the filename\n\ti.e. 21.avi becomes 21tmdb=8065.avi to ensure we get the Kevin Spacey one\n\tOr by running the script with the -i option for interactive.","WARN");
 		# go interactive if the flag is set
 		if ($config_options->{INTERACTIVE} ) {
 			$tmdb_id=Interactive($config_options, $xml_root, $file_name);

@@ -497,7 +497,7 @@ sub AddImageElement {
     			$temp->Read($sourceData);
 				}
 				else {
-					Logger($config_options,"I could not find $sourceData","CRIT");
+					Logger($config_options,"I could not find $sourceData","CRIT") unless $sourceData =~ /NONE/;
 					$temp->Read('xc:none');
 				}
 			}
@@ -727,6 +727,8 @@ sub AddTextElement {
 
 	if ($token->attr->{StrokeWidth} > 0) {
 		$text_attributes{strokewidth} = $token->attr->{StrokeWidth};
+	}
+	if ($token->attr->{StrokeColor} > 0) {
 		$text_attributes{stroke} = GetColor($token->attr->{StrokeColor});
 	}
 
@@ -832,14 +834,9 @@ sub DeTokenize {
 		$$string =~ s/\%COUNTRIES\%/$provider_hash->{COUNTRIES}/;
 	}
 
-#if ($$string =~ /\%CERTIFICATION\%/ ) {
-#if (  ref($movie_xml->{OpenSearchDescription}->{movies}->{movie}->{countries}->{country}) =~ /hash/i) {
-#$$string =~ s/\%COUNTRIES\%/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{countries}->{country}->{name}->{value}/;
-#}
-#else {
-#$$string =~ s/\%COUNTRIES\%/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{countries}->{country}->[0]->{name}->{value}/;
-#}
-#}
+	if ($$string =~ /\%CERTIFICATION\%/ ) {
+		$$string =~ s/\%CERTIFICATION\%/$provider_hash->{CERTIFICATION}/;
+	}
 
 	if ($$string =~ /\%YEAR\%/ ) {
 		$$string =~ s/\%YEAR\%/$provider_hash->{YEAR}/;
@@ -848,6 +845,11 @@ sub DeTokenize {
 	if ($$string =~ /\%MPAA\%/ ) {
 		$$string =~ s/\%MPAA\%/$provider_hash->{MPAA}/;
 	}
+
+	if ($$string =~ /\%.*SUBTITLE.*\%/ ) {
+		$$string =~ s/\%.*SUBTITLE.*\%/NONE/;
+	}
+
 
 	if ($$string =~ /\%.*TITLE\%/ ) {
 		$$string =~ s/\%.*TITLE\%/$provider_hash->{TITLE}/;
@@ -949,6 +951,7 @@ sub DeTokenize {
 	}
 
   if ( $$string =~ /\%COVER\%/ ) {
+		Logger($config_options,"Requested Cover is $provider_hash->{COVER}","DEBUG");
     $$string =~ s/\%COVER\%/$provider_hash->{COVER}/;
   }
 
@@ -1015,7 +1018,6 @@ sub DeTokenize {
 	if ($$string =~ /\%ACTORS\%/ ) {
 		my @actors=@{$provider_hash->{ACTORS}};
 
-		print "@actors\n";
 		# we have an array of every director in this movie.  the template defines a max and a join character
 		my $max=$template_xml->{Template}->{Settings}->{Actors}->{MaximumValues}->{value};
 		my $join_char=$template_xml->{Template}->{Settings}->{Actors}->{Separator}->{value};
@@ -1027,7 +1029,7 @@ sub DeTokenize {
 	}
 
 	if ($$string =~ /\%DIRECTORS\%/ ) {
-		my @directors=$provider_hash->{DIRECTORS};
+		my @directors=@{$provider_hash->{DIRECTORS}};
 		
 		# we have an array of every director in this movie.  the template defines a max and a join character
 		my $max=$template_xml->{Template}->{Settings}->{Directors}->{MaximumValues}->{value};
@@ -1041,7 +1043,7 @@ sub DeTokenize {
 	}
 
 	if ($$string =~ /\%GENRES\%/ ) {
-		my @genres=$provider_hash->{GENRES};
+		my @genres=@{$provider_hash->{GENRES}};
 
     # we have an array of every genre type.  the template defines a max and a join character
     my $max=$template_xml->{Template}->{Settings}->{Genres}->{MaximumValues}->{value};
@@ -1230,9 +1232,10 @@ sub GetTmdbID {
 
 sub GetMediaDetails_imdb {
 # grab the xml data for this specific movie from imdb
-	my %movie_info;
+	my $config_options=shift;
+	my $movie_title=shift;
+	my %provider_hash;
 
-	my $movie_title="300";
 	
 	my $movie = new IMDB::Film(crit => $movie_title);
 	
@@ -1242,28 +1245,78 @@ sub GetMediaDetails_imdb {
 	my @cast=map {$_->{name}} @{$movie->cast()} ;
 	my @countries=@{$movie->country()};
 	
-	# Movie_info hash
+	# provider_hash hash
 	
-	$movie_info{BACKGROUND}= 'http://i3.themoviedb.org/backdrops/f8d/4bc919ea017a3c57fe009f8d/scream-original.jpg';
-	$movie_info{FANART1}= 'http://i3.themoviedb.org/backdrops/f8d/4bc919ea017a3c57fe009f8d/scream-original.jpg';
-	$movie_info{FANART2}= 'http://i3.themoviedb.org/backdrops/f8d/4bc919ea017a3c57fe009f8d/scream-original.jpg';
-	$movie_info{FANART3}= 'http://i3.themoviedb.org/backdrops/f8d/4bc919ea017a3c57fe009f8d/scream-original.jpg';
-	$movie_info{COVER}= $movie->cover();
-	$movie_info{TITLE}= $movie->title();
-	$movie_info{ORIGINALTITLE}= '';
-	$movie_info{PLOT}= $movie->full_plot();
-	$movie_info{YEAR}= $movie->year();
-	$movie_info{ACTORS}= \@cast;
-	$movie_info{GENRES}= @{ $movie->genres() };
-	$movie_info{DIRECTORS}= \@directors;
-	$movie_info{MPAA}= $movie->mpaa_info();
-	$movie_info{COUNTRIES}= $countries[0];
-	$movie_info{STUDIOS}= $movie->company();
-	$movie_info{RATING}= $movie->rating();
-	$movie_info{CERTIFICATIONTEXT}= $cert[0]->{Canada};
-	$movie_info{RELEASEDATE}= $release{Canada};
-		
-	return \%movie_info;
+	$provider_hash{TITLE}= $movie->title();
+	$provider_hash{ORIGINALTITLE}= '';
+	$provider_hash{PLOT}= $movie->full_plot();
+	$provider_hash{YEAR}= $movie->year();
+	$provider_hash{ACTORS}= \@cast;
+	$provider_hash{GENRES}= $movie->genres();
+	$provider_hash{DIRECTORS}= \@directors;
+	$provider_hash{MPAA}= $movie->mpaa_info();
+	$provider_hash{COUNTRIES}= $countries[0];
+	$provider_hash{STUDIOS}= $movie->company();
+	$provider_hash{RATING}= $movie->rating();
+	$provider_hash{CERTIFICATION}= $cert[0]->{USA};
+	$provider_hash{RELEASEDATE}= $release{Canada};
+
+# imdb really doesn't provide easy access to their images and I am not a huge fan of movieposterdb
+# so I am gunna laze out and grab the images from themoviedb, using the API and the imdb id
+
+	my $tmdb_url=sprintf("http://api.themoviedb.org/2.1/Movie.imdbLookup/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/tt%s",$movie->id());
+	Logger($config_options,$tmdb_url,"DEBUG");
+
+	my $ua = LWP::UserAgent->new;
+  $ua->timeout(10);
+  $ua->env_proxy;
+
+  Logger($config_options,$tmdb_url,"DEBUG");
+  my $response = $ua->get( $tmdb_url );
+  my $xml_data=decode_entities($response->decoded_content);
+  my $xml_ob = new XML::Bare(text => $xml_data );
+  my $movie_xml=$xml_ob->parse();
+
+  my @backdrops;
+   # grab the backdrop image from themoviedb
+   foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
+     push ( @backdrops, $_->{url}->{value}) if ( ($_->{size}->{value} =~ /original/i) && ($_->{type}->{value} =~ /backdrop/i) );
+   }
+   if (scalar (@backdrops) > 1) {
+     # pick one randomly
+     # $image_url=$backdrops[ rand @backdrops ];
+     $provider_hash{BACKGROUND}=$backdrops[0];
+   }
+   else {
+     $provider_hash{BACKGROUND}=$backdrops[0];
+  }
+
+  my @fanart;
+  # grab the fanart image from themoviedb
+   foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
+     push ( @fanart, $_->{url}->{value}) if ( ($_->{size}->{value} =~ /original/i) && ($_->{type}->{value} =~ /backdrop/i) );
+   }
+  $provider_hash{FANART1}=$fanart[0];
+  $provider_hash{FANART2}=$fanart[1];
+  $provider_hash{FANART3}=$fanart[2];
+
+  $provider_hash{ORIGINALTITLE}= '';
+
+  my @covers;
+  # grab the cover image from themoviedb
+  foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
+    push ( @covers, $_->{url}->{value}) if ( ($_->{size}->{value} =~ /mid/i) && ($_->{type}->{value} =~ /poster/i) );
+  }
+  if (scalar (@covers) > 1) {
+    # pick one randomly
+    # $image_url=$covers[ rand @covers ];
+    $provider_hash{COVER}=$covers[0];
+  }
+  else {
+    $provider_hash{COVER}=$covers[0];
+  }
+
+	return \%provider_hash;
 }
 
 

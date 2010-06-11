@@ -727,9 +727,9 @@ sub AddTextElement {
 
 	if ($token->attr->{StrokeWidth} > 0) {
 		$text_attributes{strokewidth} = $token->attr->{StrokeWidth};
-	}
-	if ($token->attr->{StrokeColor} > 0) {
-		$text_attributes{stroke} = GetColor($token->attr->{StrokeColor});
+		if (GetColor($token->attr->{StrokeColor}) !~ /000000/ ) {
+			$text_attributes{stroke} = GetColor($token->attr->{StrokeColor});
+		}
 	}
 
 	$temp->Annotate(%text_attributes);
@@ -836,6 +836,10 @@ sub DeTokenize {
 
 	if ($$string =~ /\%CERTIFICATION\%/ ) {
 		$$string =~ s/\%CERTIFICATION\%/$provider_hash->{CERTIFICATION}/;
+	}
+
+	if ($$string =~ /\%CERTIFICATIONTEXT\%/ ) {
+		$$string =~ s/\%CERTIFICATIONTEXT\%/$provider_hash->{CERTIFICATION}/;
 	}
 
 	if ($$string =~ /\%YEAR\%/ ) {
@@ -1378,7 +1382,11 @@ sub GetMediaDetails_tmdb {
 
 	$provider_hash{TITLE}= $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{name}->{value};
 	$provider_hash{PLOT}= $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{overview}->{value};
-	$provider_hash{ACTORS}= @{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{cast}->{person} };
+	my @actors;
+	foreach (@{$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{cast}->{person} } ) {
+		push (@actors, $_->{name}->{value}) if ($_->{job}->{value} =~ /actor/i);
+	}
+	$provider_hash{ACTORS}= \@actors;
 	$provider_hash{RATING}=$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{rating}->{value};
 	$provider_hash{CERTIFICATIONTEXT}="";
 	$provider_hash{RELEASEDATE}="";
@@ -1396,7 +1404,7 @@ sub GetMediaDetails_tmdb {
      	push (@genres, $_->{name}->{value}) if lc($_->{type}->{value}) eq "genre" ;
    	}
 	}
-	$provider_hash{GENRES}= @genres;
+	$provider_hash{GENRES}= \@genres;
 
 	my @directors;
 	foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{cast}->{person} } ) {

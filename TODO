@@ -3,7 +3,6 @@
 	- create image effect Glow
 	- create image effect AdjustGamma
 - figure out subtitles.
-- add more than just one source for movie information.
 - perhaps a script to add fonts to imagemagick
 - fix for .iso files
 - ensure the TextElement Actions are followed
@@ -14,6 +13,8 @@
 			Main Sheet - $M\$N$E_sheet - Main sheet for the Movie jukebox on the Playon!HD
 			Extra Sheet - Used in the browser screen of the Playon!HD
 - roll it all up into an app.bin
+- amalgamate the data collection for movies.  themoviedb interface lends itself well to interactively choosing a movie and has good fan art.  IMDB has better information.
+	hence, query themoviedb to get the specfic movie, its imdb id and fanart.  Then get the rest from IMDB :)
 
 
 ------------------------

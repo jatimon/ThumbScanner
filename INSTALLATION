@@ -71,6 +71,7 @@ sudo perl -MCPAN -e 'install XML::Bare'
 sudo perl -MCPAN -e 'install LWP::UserAgent'
 sudo perl -MCPAN -e 'install HTML::Entities'
 sudo perl -MCPAN -e 'install IO::Prompt'
+sudo perl -MCPAN -e 'install IMDB::Film'
 
 
 Manual installation

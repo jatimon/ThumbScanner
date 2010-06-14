@@ -1,5 +1,6 @@
 v 0.5
-- added imdb as a provider and defined a basis for future providers
+- removed provider selection ability.  We use both, themoviedb for fanart and
+imdb for the rest
 
 v 0.4
 - implemented the ability to recursivly scan subdirectories of the main movie directory, this is provided by the -r command line option

@@ -58,6 +58,7 @@ XML::Bare
 LWP::UserAgent
 HTML::Entities
 IO::Prompt
+IMDB::Film
 
 Most of these are Core Modules, however you will need to install
 
@@ -68,7 +69,7 @@ XML::Bare
 LWP::UserAgent
 HTML::Entities
 IO::Prompt
-
+IMDB::Film
 
 - Template files.  It is built against Dribblers Templates.
 

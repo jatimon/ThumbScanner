@@ -68,5 +68,12 @@
 ---- TOKENS that can be in a conf file ----
  %PATH%												|	Template folder without trailing backslash 	 C:\ThumbGen\Templates\MyTemplate
  %MOVIEPARENTFOLDER%					|	Current movie parent folder name 	Movies (for c:\Movies\Spread\Spread.2009.mkv)
- %PROVIDER%										| Where to pull movie information from  currently themoviedb.org
+
+
+---- TOKENS to put in provider_hash ----
+ %MOVIEFILENAME%							|	Current movie filename 	Spread.2009.mkv (for c:\movies\spread\spread.2009.mkv)
+ %TITLEPATH%									|	Current movie folder path without trailing backslash 	C:\Movies\Cars
+ %MOVIEFILENAMEWITHOUTEXT%		|	Current movie filename without extension 	Spread.2009 (for c:\Movies\Spread\Spread.2009.mkv)
+ %MOVIEFOLDER%								|	Current movie folder name 	Spread (for c:\Movies\Spread\Spread.2009.mkv)
+ %MOVIEPARENTFOLDER%					|	Current movie parent folder name 	Movies (for c:\Movies\Spread\Spread.2009.mkv)
 

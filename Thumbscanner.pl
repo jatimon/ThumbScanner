@@ -1391,19 +1391,21 @@ sub ScanMovieDir {
 		elsif ( -e $name && !(-d $name) ) {
 			my $moviesheet;
 			my $thumbnail;
-			my $actual_file_name = &cwd."/$name";
-			Logger($config_options,"Processing $actual_file_name as a movie","DEBUG");
-			Logger($config_options,"Creating a moviesheet for $name","INFO");
+			my %provider_hash;
+			my $FQname = &cwd."/$name";
+
+			$provider_hash{MOVIEFILENAME}=$name;
+			$provider_hash{MOVIEFILENAMEWITHOUTEXT}=$name;
+			$provider_hash{MOVIEFILENAMEWITHOUTEXT} =~ s/\.\w+$//; # remove the trailing suffix
+			Logger($config_options,"Processing $FQname as a movie","DEBUG");
+			Logger($config_options,"Creating a moviesheet for $provider_hash{MOVIEFILENAME}","INFO");
 
 			
-			my $short_name=$actual_file_name;
-			$short_name =~ s/\.\w+$//; # remove the trailing suffix
-			my $clean_name=clean_name($name);
-			if ( ($config_options->{OVERWRITE}) || !( -e "$short_name.jpg"))  {
-				my %provider_hash;
-				my $tmdb_id=GetTmdbID($config_options,$name);
+			my $clean_name=clean_name($provider_hash{MOVIEFILENAME});
+			if ( ($config_options->{OVERWRITE}) || !( -e "$provider_hash{MOVIEFILENAMEWITHOUTEXT}.jpg"))  {
+				my $tmdb_id=GetTmdbID($config_options,$provider_hash{MOVIEFILENAME});
 				unless (defined($tmdb_id)) {
-					Logger($config_options,"unable to find movie data for $name","CRIT");
+					Logger($config_options,"unable to find movie data for $provider_hash{MOVIEFILENAME}","CRIT");
 					next;
 				}
 				# get more detailed information using the Movie.getInfo call
@@ -1411,18 +1413,18 @@ sub ScanMovieDir {
 				GetMediaDetails_imdb($config_options,\%provider_hash);
 
 				# get the media_info hash
-				my $mediainfo=GetMediaInfo($config_options,$actual_file_name);
+				my $mediainfo=GetMediaInfo($config_options,$FQname);
 
 				# start the movie sheet generation
 				$moviesheet=generate_moviesheet($config_options, \%provider_hash, $mediainfo);
-				Logger($config_options,"Writing ${actual_file_name}_sheet.jpg","INFO");
-				$moviesheet->Write("${actual_file_name}_sheet.jpg");
+				Logger($config_options,"Writing ${FQname}_sheet.jpg","INFO");
+				$moviesheet->Write("${FQname}_sheet.jpg");
 
 				# generate thumbnail
 				if ($provider_hash{COVER} ne "") {
 					Logger($config_options,"Writing thumbnail","INFO");
 					$thumbnail=grab_thumbnail(\%provider_hash);
-					$thumbnail->Write("$short_name.jpg");
+					$thumbnail->Write("$provider_hash{MOVIEFILENAMEWITHOUTEXT}.jpg");
 				}
 			}
   	}

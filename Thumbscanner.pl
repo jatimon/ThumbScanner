@@ -479,6 +479,7 @@ sub AddImageElement {
 
 			if ($sourceData eq "") {
 				Logger($config_options,"I was unable to find information on the web for this movie","CRIT");
+				$temp->Read('xc:none');
 				next;
 			}
 
@@ -1184,8 +1185,8 @@ sub Interactive {
 	my %menu;
 
   foreach (@{ $xml_root->{OpenSearchDescription}->{movies}->{movie} } ) {
-		my $key="$_->{name} -- $_->{overview}";
-		$menu{substr($key,0,90)}=$_->{id};
+		my $key="$_->{name} -- $_->{overview}" unless ($_->{overview} eq "No overview found.") ;
+		$menu{substr($key,0,90)}=$_->{id} unless ($key eq '');
   }
 
 	 prompt ("\nPlease identify which movie entry $file_name is:", -menu=>\%menu);
@@ -1537,9 +1538,11 @@ sub ScanMovieDir {
 				$moviesheet->Write("${actual_file_name}_sheet.jpg");
 
 				# generate thumbnail
-				$thumbnail=grab_thumbnail($provider_hash);
-				Logger($config_options,"Writing thumbnail","INFO");
-				$thumbnail->Write("$short_name.jpg");
+				if ($provider_hash->{COVER} ne "") {
+					Logger($config_options,"Writing thumbnail","INFO");
+					$thumbnail=grab_thumbnail($provider_hash);
+					$thumbnail->Write("$short_name.jpg");
+				}
 			}
   	}
 	}

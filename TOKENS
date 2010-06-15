@@ -1,10 +1,4 @@
 ---- Implemented Tags ----
- %PATH%												|	Template folder without trailing backslash 	 C:\ThumbGen\Templates\MyTemplate
- %BACKGROUND%									|	Path to the backdrop selected in ThumbGen 	{image selected as backdrop}
- %FANART1%										|	Path to the Fanart 1 selected in ThumbGen 	{image selected as fanart1}
- %FANART2%										|	Path to the Fanart 2 selected in ThumbGen 	{image selected as fanart2}
- %FANART3%										|	Path to the Fanart 3 selected in ThumbGen 	{image selected as fanart3}
- %COVER%											|	Path to the Cover selected in ThumbGen 	{image selected as cover}
  %TITLE%											|	Movie Title 	Inglorious Basterds
  %ORIGINALTITLE%							|	Original movie title 	Inglourious Basterds
  %PLOT%												|	Synopsis 	Some description of the movie.
@@ -76,4 +70,10 @@
  %MOVIEFILENAMEWITHOUTEXT%		|	Current movie filename without extension 	Spread.2009 (for c:\Movies\Spread\Spread.2009.mkv)
  %MOVIEFOLDER%								|	Current movie folder name 	Spread (for c:\Movies\Spread\Spread.2009.mkv)
  %MOVIEPARENTFOLDER%					|	Current movie parent folder name 	Movies (for c:\Movies\Spread\Spread.2009.mkv)
+ %PATH%												|	Template folder without trailing backslash 	 C:\ThumbGen\Templates\MyTemplate
+ %FANART1%										|	Path to the Fanart 1 selected in ThumbGen 	{image selected as fanart1}
+ %FANART2%										|	Path to the Fanart 2 selected in ThumbGen 	{image selected as fanart2}
+ %FANART3%										|	Path to the Fanart 3 selected in ThumbGen 	{image selected as fanart3}
+ %BACKGROUND%									|	Path to the backdrop selected in ThumbGen 	{image selected as backdrop}
+ %COVER%											|	Path to the Cover selected in ThumbGen 	{image selected as cover}
 

@@ -878,50 +878,39 @@ sub DeTokenize {
 	}
 
 	if ($$string =~ /\%DURATIONTEXT\%/) {
-		my $rep = (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[1]->{Duration};
-		$$string =~ s/\%DURATIONTEXT\%/$rep/;
+		$$string =~ s/\%DURATIONTEXT\%/$provider_hash->{DURATIONTEXT}/;
 	}
 	
 	if ($$string =~ /\%VIDEORESOLUTIONTEXT\%/) {
-		my $rep = (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :sprintf("%sx%s",$media_info->{Mediainfo}->{File}->{track}->[1]->{Width},$media_info->{Mediainfo}->{File}->{track}->[1]->{Height});
-		$rep =~ s/pixels//g;
-		$$string =~ s/\%VIDEORESOLUTIONTEXT\%/$rep/;
+		$$string =~ s/\%VIDEORESOLUTIONTEXT\%/$provider_hash->{VIDEORESOLUTIONTEXT}/;
 	}
 	
 	if ($$string =~ /\%FRAMERATETEXT\%/) {
-		my $rep = (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[1]->{Frame_rate};
-		$$string =~ s/\%FRAMERATETEXT\%/$rep/;
+		$$string =~ s/\%FRAMERATETEXT\%/$provider_hash->{FRAMERATETEXT}/;
 	}
 
 	if ($$string =~ /\%AUDIOCODECTEXT\%/) {
-		my $rep = (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[2]->{Codec_ID};
-		$$string =~ s/\%AUDIOCODECTEXT\%/$rep/;
+		$$string =~ s/\%AUDIOCODECTEXT\%/$provider_hash->{AUDIOCODECTEXT}/;
 	}
 
 	if ($$string =~ /\%ASPECTRATIOTEXT\%/) {
-		my $rep = (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[1]->{Display_aspect_ratio};
-		$$string =~ s/\%ASPECTRATIOTEXT\%/$rep/;
+		$$string =~ s/\%ASPECTRATIOTEXT\%/$provider_hash->{ASPECTRATIOTEXT}/;
 	}
 
 	if ($$string =~ /\%VIDEOBITRATETEXT\%/) {
-		my $rep = (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[1]->{Bit_rate};
-		$$string =~ s/\%VIDEOBITRATETEXT\%/$rep/;
+		$$string =~ s/\%VIDEOBITRATETEXT\%/$provider_hash->{VIDEOBITRATETEXT}/;
 	}
 
 	if ($$string =~ /\%AUDIOCHANNELSTEXT\%/) {
-		my $rep = (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_};
-		$rep =~ s/(\d+) .*$/$1 /;
-		$$string =~ s/\%AUDIOCHANNELSTEXT\%/$rep/;
+		$$string =~ s/\%AUDIOCHANNELSTEXT\%/$provider_hash->{AUDIOCHANNELSTEXT}/;
 	}
 
 	if ($$string =~ /\%AUDIOBITRATETEXT\%/) {
-		my $rep = (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[2]->{Bit_rate};
-		$$string =~ s/\%AUDIOBITRATETEXT\%/$rep/;
+		$$string =~ s/\%AUDIOBITRATETEXT\%/$provider_hash->{AUDIOBITRATETEXT}/;
 	}
 
 	if ($$string =~ /\%FILESIZETEXT\%/) {
-		my $rep = (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[0]->{File_size};
-		$$string =~ s/\%FILESIZETEXT\%/$rep/;
+		$$string =~ s/\%FILESIZETEXT\%/$provider_hash->{FILESIZETEXT}/;
 	}
 
 	if ($$string =~ /\%RATING\%/ ) {
@@ -960,13 +949,10 @@ sub DeTokenize {
     $$string =~ s/\%COVER\%/$provider_hash->{COVER}/;
   }
 
-	if ($$string =~ /\%VIDEOFORMAT\%/ and (ref($media_info->{Mediainfo}->{File}->{track}) eq "ARRAY" ) ) {
+	if ($$string =~ /\%VIDEOFORMAT\%/ ) {
 		my $rep="";
-		my $format=$media_info->{Mediainfo}->{File}->{track}->[1]->{Format};
-
-		if ( $format =~ /mpeg-4/i ) { $format="Divx" }
 		foreach (@{$template_xml->{Template}->{VideoFormats}->{VideoFormat} }) {
-			$rep = $_->{Image}->{value} if $format =~  /$_->{Text}->{value}/i;
+			$rep = $_->{Image}->{value} if $provider_hash->{VIDEOFORMAT} =~  /$_->{Text}->{value}/i;
 		}
 		$$string =~ s/\%VIDEOFORMAT\%/$rep/;
 	}
@@ -1064,7 +1050,7 @@ sub DeTokenize {
 
 	if ( $$string =~ /\%PATH\%/ ) {
 		# fix the source, it will come in Window Path Format, switch it to Unix
-		$$string =~ s/\%PATH\%/$config_options->{Template_Path}/;
+		$$string =~ s/\%PATH\%/$config_options->{PATH}/;
 		$$string =~ tr |\\|/|;
 		Logger($config_options,"Path expanded -> $$string","DEBUG");
 	}
@@ -1185,8 +1171,8 @@ sub Interactive {
 	my %menu;
 
   foreach (@{ $xml_root->{OpenSearchDescription}->{movies}->{movie} } ) {
-		my $key="$_->{name} -- $_->{overview}" unless ($_->{overview} eq "No overview found.") ;
-		$menu{substr($key,0,90)}=$_->{id} unless ($key eq '');
+			my $key="$_->{name} -- $_->{overview}";
+			$menu{substr($key,0,90)}=$_->{id} unless ($key eq '');
   }
 
 	 prompt ("\nPlease identify which movie entry $file_name is:", -menu=>\%menu);
@@ -1327,18 +1313,91 @@ sub GetMediaDetails_tmdb {
 sub GetMediaInfo {
 # call the shell program mediainfo on $actual_file_name and return a hash reference to it
 	my $config_options=shift;
-	my $movie_name=shift;
+	my $provider_hash=shift;
 
 	# I really hate doing it this way.  At some point it would be great to talk direct to the library
 	# some effort should be put into ensuring that $movie_name is safe
-	my $cmd=sprintf("mediainfo --Output=XML \"%s\" |","$movie_name");
+	my $cmd=sprintf("mediainfo --Output=XML \"%s\" |",$provider_hash->{FULLMOVIEPATH});
 	#open my $FD, "mediainfo --Output=XML '$movie_name' |" or die "unable to open $movie_name";
-  open my $FD, $cmd or die "unable to open $movie_name";
+  open my $FD, $cmd or die "unable to open $provider_hash->{FULLMOVIEPATH}";
   my @xml=<$FD>;
   close $FD;
 
   my $ob = new XML::Bare(text => "@xml" );
-  return $ob->simple();
+
+	my $media_info=$ob->simple();
+
+	$provider_hash->{DURATIONTEXT}				= (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[1]->{Duration};
+	$provider_hash->{FRAMERATETEXT}				= (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[1]->{Frame_rate};
+	$provider_hash->{AUDIOCODECTEXT}			= (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[2]->{Codec_ID};
+	$provider_hash->{ASPECTRATIOTEXT}			= (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[1]->{Display_aspect_ratio};
+	$provider_hash->{VIDEOBITRATETEXT}		= (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[1]->{Bit_rate}; 
+	$provider_hash->{AUDIOBITRATETEXT}		= (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[2]->{Bit_rate};
+	$provider_hash->{FILESIZETEXT}				= (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[0]->{File_size};
+	$provider_hash->{VIDEORESOLUTIONTEXT}	= (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :sprintf("%sx%s",$media_info->{Mediainfo}->{File}->{track}->[1]->{Width},$media_info->{Mediainfo}->{File}->{track}->[1]->{Height});
+	$provider_hash->{VIDEORESOLUTIONTEXT} =~ s/pixels//g;
+	$provider_hash->{AUDIOCHANNELSTEXT}		= (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_};
+	$provider_hash->{AUDIOCHANNELSTEXT}		=~ s/(\d+) .*$/$1 /;
+
+	# supported values		Divx, xvid, wmv, avc, mpeg 
+	$provider_hash->{VIDEOFORMAT}					= (ref($media_info->{Mediainfo}->{File}->{track}) eq "ARRAY" ) ? '' : lc($media_info->{Mediainfo}->{File}->{track}->[1]->{Format});
+
+
+
+
+#				if ($$string =~ /\%MEDIAFORMAT\%/ and (ref($media_info->{Mediainfo}->{File}->{track}) eq "ARRAY" ) ) {
+#				my $rep="";
+#				my $format=$media_info->{Mediainfo}->{File}->{track}->[0]->{Format};
+#				
+#				if ( $format =~ /Matroska/i ) { $format="mkv" }
+#				if ( $format =~ /avi/i ) { $format="mpeg" }
+#				foreach (@{$template_xml->{Template}->{MediaFormats}->{MediaFormat} }) {
+#				$rep = $_->{Image}->{value} if $format =~  /$_->{Text}->{value}/i;
+#				}
+#				$$string =~ s/\%MEDIAFORMAT\%/$rep/;
+#				}
+#				
+#				if ($$string =~ /\%RESOLUTION\%/ ) {
+#				my $rep=qw/%PATH%\..\Common\image_resolution\720.png/;
+#				$$string =~ s/\%RESOLUTION\%/$rep/;
+#				}
+#				
+#				if ($$string =~ /\%SOUNDFORMAT\%/ and (ref($media_info->{Mediainfo}->{File}->{track}) eq "ARRAY" ) ) {
+#				# this is a bit more involved given the permutations of media formats
+#				my $format=$media_info->{Mediainfo}->{File}->{track}->[2]->{Format};
+#				my $format_version=$media_info->{Mediainfo}->{File}->{track}->[2]->{Format_version};
+#				my $channels=$media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_};
+#				my $text;
+#				my $rep="";
+#				
+#				if ( $format =~ /mpeg/i ) {
+#				if ( $format_version =~ /1/ ) {
+#				$text="MP3 1.0";
+#				}
+#				elsif ( $format_version =~ /2/ ) {
+#				$text="MP3 2.0";
+#				}
+#				else {
+#				$text="All Mpeg";
+#				}
+#				} else {
+#				if ( $format =~ /AC-3/i ) {
+#				$text="AAC Unknown";
+#				}
+#				# still need to add different format versions.  Once I have more data from mediainfo output I can fill this in
+#				}
+#				# elses for other formats
+#				
+#				foreach (@{$template_xml->{Template}->{SoundFormats}->{SoundFormat} }) {
+#				$rep = $_->{Image}->{value} if $text =~  /$_->{Text}->{value}/i;
+#				}
+#				$$string =~ s/\%SOUNDFORMAT\%/$rep/;
+#				}
+
+	
+
+	return $media_info;
+
 }
 
 
@@ -1362,6 +1421,7 @@ Usage: Thumbscanner [options]
   -d  --debug             print debugging information values < CRIT | ERROR | WARN | INFO | DEBUG >
   -f  --file              use a specific config file, default is engine.conf
   -o  --overwrite         overwrite existing moviesheets and thumbnails
+  -i  --interactive       for instances where multiple hits are returned, prompt the user to pick one
 
 Example:
   Thumbscanner -r -d INFO -o
@@ -1379,7 +1439,7 @@ sub ScanMovieDir {
 
   chdir($workdir) or die "Unable to enter dir $workdir:$!\n";
   opendir(DIR, ".") or die "Unable to open $workdir:$!\n";
-	my @names=grep{ /^\w+/ && !/^\.+/ && !/jpg/ && !/video ts/i } readdir(DIR);
+	my @names=grep{ /^\w+/ && !/^\.+/ } readdir(DIR);
   closedir(DIR);
  
   foreach my $name (@names){
@@ -1388,16 +1448,16 @@ sub ScanMovieDir {
       ScanMovieDir($config_options,$name);
       next;
     }
-		elsif ( -e $name && !(-d $name) ) {
+		elsif ( -e $name && grep{ /.*\.avi$/i || /.*\.mkv$/i || /.*\.mov$/i || /.*\.mpg$/i || /.*\.mpeg$/i || /.*\.wmv$/i || /.*\.mp4$/i || /.*\.qt$/i || /.*\.rm$/i } $name) {
 			my $moviesheet;
 			my $thumbnail;
 			my %provider_hash;
-			my $FQname = &cwd."/$name";
 
+			$provider_hash{FULLMOVIEPATH}=&cwd."/$name";
 			$provider_hash{MOVIEFILENAME}=$name;
 			$provider_hash{MOVIEFILENAMEWITHOUTEXT}=$name;
 			$provider_hash{MOVIEFILENAMEWITHOUTEXT} =~ s/\.\w+$//; # remove the trailing suffix
-			Logger($config_options,"Processing $FQname as a movie","DEBUG");
+			Logger($config_options,"Processing $provider_hash{FULLMOVIEPATH} as a movie","DEBUG");
 			Logger($config_options,"Creating a moviesheet for $provider_hash{MOVIEFILENAME}","INFO");
 
 			
@@ -1413,12 +1473,12 @@ sub ScanMovieDir {
 				GetMediaDetails_imdb($config_options,\%provider_hash);
 
 				# get the media_info hash
-				my $mediainfo=GetMediaInfo($config_options,$FQname);
+				my $mediainfo=GetMediaInfo($config_options,\%provider_hash);
 
 				# start the movie sheet generation
 				$moviesheet=generate_moviesheet($config_options, \%provider_hash, $mediainfo);
-				Logger($config_options,"Writing ${FQname}_sheet.jpg","INFO");
-				$moviesheet->Write("${FQname}_sheet.jpg");
+				Logger($config_options,"Writing $provider_hash{FULLMOVIEPATH}_sheet.jpg","INFO");
+				$moviesheet->Write("$provider_hash{FULLMOVIEPATH}_sheet.jpg");
 
 				# generate thumbnail
 				if ($provider_hash{COVER} ne "") {
@@ -1441,19 +1501,19 @@ sub Main {
 		Logger($config_options,"Template file '$config_options->{TEMPLATE}' does not exist!!","CRIT");
 		exit -1;
 	}
-	unless (-e $config_options->{MOVIEDIR}) {
-		Logger($config_options,"Movie directory '$config_options->{MOVIEDIR}' does not exist!!","CRIT");
+	unless (-e $config_options->{MOVIEPARENTFOLDER}) {
+		Logger($config_options,"Movie directory '$config_options->{MOVIEPARENTFOLDER}' does not exist!!","CRIT");
 		exit -1;
 	}
 
-	($config_options->{Template_Filename}, $config_options->{Template_Path}) = fileparse($config_options->{TEMPLATE});
-	$config_options->{Template_Path} =~ s/\/$//;
+	($config_options->{Template_Filename}, $config_options->{PATH}) = fileparse($config_options->{TEMPLATE});
+	$config_options->{PATH} =~ s/\/$//;
 
 	# there is no guarantee of case in Windows Filenaming.
 	# we need to make sure we can load the file case insensitively.
-	my @names = File::Finder->in($config_options->{Template_Path}."/..");
+	my @names = File::Finder->in($config_options->{PATH}."/..");
 	$config_options->{names}=\@names;
-	ScanMovieDir($config_options,$config_options->{MOVIEDIR});
+	ScanMovieDir($config_options,$config_options->{MOVIEPARENTFOLDER});
 }
 
 my %config_options;

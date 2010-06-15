@@ -1,6 +1,8 @@
 v 0.5
 - removed provider selection ability.  We use both, themoviedb for fanart and
 imdb for the rest
+- MOVIEPARENTFOLDER has replace MOVIEDIR in the engine.conf
+
 
 v 0.4
 - implemented the ability to recursivly scan subdirectories of the main movie directory, this is provided by the -r command line option

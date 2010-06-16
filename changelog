@@ -1,7 +1,12 @@
 v 0.5
-- removed provider selection ability.  We use both, themoviedb for fanart and
-imdb for the rest
+- removed provider selection ability.  We use both, themoviedb for fanart and imdb for the rest
 - MOVIEPARENTFOLDER has replace MOVIEDIR in the engine.conf
+- SUBTITLES now working, still need to finish EXTERNALSUBTITLES
+- search directories for only specific file suffixes, .mkv .avi .mov .mpg .mpeg .wmv .mp4 .qt .rm (.iso and .ifo eventually)
+- removed the passing of the media_info xml object, for purely readability reasons.
+- all moviesheet TOKENS are in the provider_hash object
+- added some logic to figure out video resolution for RESOLUTION TOKEN
+- there is a catchall added to the processing of Text Elements to capture any missing Actions and throw a CRIT message
 
 
 v 0.4

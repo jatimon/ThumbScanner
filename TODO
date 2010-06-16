@@ -1,11 +1,9 @@
-- display resolution token correctly
 - a couple of image transforms remain to be done
 	- create image effect Glow
 	- create image effect AdjustGamma
-- figure out subtitles.
+- figure out how to determine language of external subtitles. .srt files
 - perhaps a script to add fonts to imagemagick
 - fix for .iso files
-- ensure the TextElement Actions are followed
 - add options for Thumbgen like extra sheets
 			Thumbnail - $M\$N for the small Thumbnail (Cover)
 			Extra Thumbnail - folder for the big Thumbnail
@@ -14,25 +12,4 @@
 			Extra Sheet - Used in the browser screen of the Playon!HD
 - roll it all up into an app.bin
 - add more logic for specific audioformats
-- search directories for only specific file suffixes, .mkv .avi .mov .mpg .mpeg .wmv .iso .ogg .mp4 .qt .rm (.ifo eventually)
-- put all of the TOKENs into provider_hash.  that way we have fewer objects to pass around.
-
-
-------------------------
-Notes
-
-in order to allow for multiple different providers for movie data, I will need to define a consistent provider interface.
-
-A provider should take a movie name as an argument and return all valid tokens that it finds.
-
-initially I am thinking instantiate a provider type object.  
-
-that has as field all of the tokens and upon instantiation goes to the web site that the provider is for and populates 
-
-what to do when multiple movies match the name?  
-		1) command line option to always take first 
-		2) prompt user to choose correct one 
-		3) allow id= in the name to specify specific instance (this is problematic since each provider has unique id)
-
-		I think I will make an interactive command line flag.  By default, the program run non-interactively and when multiple matches occur it takes the first one.  In interactive mode it presents all matches and prompts the user to select the correct one.
-
+- search directories for only specific file suffixes, .iso .ifo

@@ -431,7 +431,6 @@ sub AddImageElement {
 # all of the composite information will be in the composite_data variable
 	my $config_options=shift;
 	my $provider_hash=shift;
-	my $mediainfo=shift;
 	my $base_image=shift;
 	my $token=shift;
 	my $parser=shift;
@@ -444,7 +443,7 @@ sub AddImageElement {
 		if ( $sourceData =~ /\%RATINGSTARS\%/ ) {
 			# this token is part of the Settings token in the template.xml file
 			my $source=$template_xml->{Template}->{Settings}->{Rating}->{FileName}->{value};
-			next unless DeTokenize($config_options,\$source,$mediainfo,$provider_hash,$template_xml);
+			next unless DeTokenize($config_options,\$source,$provider_hash,$template_xml);
 			my $rating=$provider_hash->{RATING};
     	$temp->Read($source);
 			my ($width, $height) = $temp->Get('columns', 'rows');
@@ -475,10 +474,10 @@ sub AddImageElement {
 
 		}
 		else {
-			next unless DeTokenize($config_options,\$sourceData,$mediainfo,$provider_hash,$template_xml);
+			next unless DeTokenize($config_options,\$sourceData,$provider_hash,$template_xml);
 
 			if ($sourceData eq "") {
-				Logger($config_options,"I was unable to find information on the web for this movie","CRIT");
+				Logger($config_options,"I was unable to find image element information movie .. ".$token->attr->{Name},"CRIT");
 				$temp->Read('xc:none');
 				next;
 			}
@@ -597,7 +596,7 @@ sub AddImageElement {
 					}
 					else {
 						if ( ( $token->tag ) && ( $token->is_start_tag ) ) {
-							Logger($config_options,"don't know what to do with " . $token->tag ,"CRIT");
+							Logger($config_options,"don't know what to do with Image Element " . $token->tag ,"CRIT");
 						}
 					}
 					last if ( ($token->tag =~ /Actions/) );
@@ -683,7 +682,6 @@ sub AddTextElement {
 
 	my $config_options=shift;
 	my $provider_hash=shift;
-	my $mediainfo=shift;
 	my $base_image=shift;
 	my $token=shift;
 	my $parser=shift;
@@ -707,7 +705,7 @@ sub AddTextElement {
 
 	$string=$token->attr->{Text};
 	if ($string =~ /\%.+\%/) {
-		DeTokenize($config_options,\$string,$mediainfo,$provider_hash,$template_xml);
+		DeTokenize($config_options,\$string,$provider_hash,$template_xml);
 	}
 
 	Logger($config_options,"Font Family=$font_hash->{Family}\tsize=$font_hash->{Size}","DEBUG");
@@ -765,7 +763,7 @@ sub AddTextElement {
 					$temp->Scale(height=>$token->attr->{Height}, width=>$token->attr->{Width} );
 				}
 				elsif ( ( $token->tag ) && ( $token->is_start_tag ) ) {
-					Logger($config_options,"don't know what to do with ".$token->tag ,"CRIT");
+					Logger($config_options,"don't know what to do with Text Element ".$token->tag ,"CRIT");
 				}
 				last if ( ($token->tag =~ /Actions/) );
 			} # end  inner While
@@ -823,7 +821,6 @@ sub DeTokenize {
 # this requires the mediainfo hash and the moviedb xml
 	my $config_options=shift;
 	my $string=shift;  # the string where I replace the token
-	my $media_info=shift;
 	my $provider_hash=shift;
 	my $template_xml=shift;
 
@@ -851,8 +848,13 @@ sub DeTokenize {
 		$$string =~ s/\%MPAA\%/$provider_hash->{MPAA}/;
 	}
 
-	if ($$string =~ /\%.*SUBTITLE.*\%/ ) {
-		$$string =~ s/\%.*SUBTITLE.*\%/NONE/;
+	if ($$string =~ /\%EXTERNALSUBTITLES(\d)\%/ ) {
+		$$string =~ s/\%EXTERNALSUBTITLES$1\%/NONE/;
+	}
+
+	if ($$string =~ /\%SUBTITLES(\d)\%/ ) {
+		my $rep= $provider_hash->{"SUBTITLES$1"},"\n";	
+		$$string =~ s/\%SUBTITLES$1\%/$rep/;
 	}
 
 
@@ -957,53 +959,17 @@ sub DeTokenize {
 		$$string =~ s/\%VIDEOFORMAT\%/$rep/;
 	}
 
-	if ($$string =~ /\%MEDIAFORMAT\%/ and (ref($media_info->{Mediainfo}->{File}->{track}) eq "ARRAY" ) ) {
-		my $rep="";
-		my $format=$media_info->{Mediainfo}->{File}->{track}->[0]->{Format};
-
-		if ( $format =~ /Matroska/i ) { $format="mkv" }
-		if ( $format =~ /avi/i ) { $format="mpeg" }
-		foreach (@{$template_xml->{Template}->{MediaFormats}->{MediaFormat} }) {
-			$rep = $_->{Image}->{value} if $format =~  /$_->{Text}->{value}/i;
-		}
-		$$string =~ s/\%MEDIAFORMAT\%/$rep/;
+	if ($$string =~ /\%MEDIAFORMAT\%/ ) {
+		$$string =~ s/\%MEDIAFORMAT\%/$provider_hash->{MEDIAFORMAT}/;
 	}
 
 	if ($$string =~ /\%RESOLUTION\%/ ) {
-		my $rep=qw/%PATH%\..\Common\image_resolution\720.png/;
-		$$string =~ s/\%RESOLUTION\%/$rep/;
+		$$string =~ s/\%RESOLUTION\%/$provider_hash->{RESOLUTION}/;
 	}
 
-	if ($$string =~ /\%SOUNDFORMAT\%/ and (ref($media_info->{Mediainfo}->{File}->{track}) eq "ARRAY" ) ) {
-		# this is a bit more involved given the permutations of media formats
-		my $format=$media_info->{Mediainfo}->{File}->{track}->[2]->{Format};
-		my $format_version=$media_info->{Mediainfo}->{File}->{track}->[2]->{Format_version};
-		my $channels=$media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_};
-		my $text;
-		my $rep="";
-
-		if ( $format =~ /mpeg/i ) {
-			if ( $format_version =~ /1/ ) {
-				$text="MP3 1.0";
-			}
-			elsif ( $format_version =~ /2/ ) {
-				$text="MP3 2.0";
-			}
-			else {
-				$text="All Mpeg";
-			}
-		} else {
-			if ( $format =~ /AC-3/i ) {
-				$text="AAC Unknown";
-			}
-# still need to add different format versions.  Once I have more data from mediainfo output I can fill this in
-		}
-			# elses for other formats
-		
-		foreach (@{$template_xml->{Template}->{SoundFormats}->{SoundFormat} }) {
-			$rep = $_->{Image}->{value} if $text =~  /$_->{Text}->{value}/i;
-		}
-		$$string =~ s/\%SOUNDFORMAT\%/$rep/;
+	if ($$string =~ /\%SOUNDFORMAT\%/ ) {
+		my @rep = map{$_->{Name}->{value} eq $provider_hash->{SOUNDFORMAT} ? $_->{Image}->{value} : '' } @{$template_xml->{Template}->{SoundFormats}->{SoundFormat} };
+		$$string =~ s/\%SOUNDFORMAT\%/$rep[0]/;
 	}
 
 	if ($$string =~ /\%ACTORS\%/ ) {
@@ -1079,7 +1045,6 @@ sub generate_moviesheet {
 # takes as input a movie data hash, a template file and the filenamed array
 	my $config_options=shift;
 	my $provider_hash=shift;
-	my $mediainfo=shift;
 
 	my $parser = XML::TokeParser->new( $config_options->{TEMPLATE} );
 	my $template_obj = new XML::Bare(file => $config_options->{TEMPLATE} );
@@ -1104,13 +1069,13 @@ sub generate_moviesheet {
 		# add an image element to the canvas
     if ( ($token->tag eq "ImageElement") && ($token->is_start_tag)  ) {
       Logger($config_options,"ImageElement ".$token->attr->{Name},"DEBUG");
-			AddImageElement($config_options,$provider_hash,$mediainfo,$moviesheet,$token,$parser,$template_xml);
+			AddImageElement($config_options,$provider_hash,$moviesheet,$token,$parser,$template_xml);
     }
 
 		# add a text element to the canvas
     if ( ($token->tag eq "TextElement") && ($token->is_start_tag)  ) {
       Logger($config_options,"TextElement ".$token->attr->{Name},"DEBUG");
-			AddTextElement($config_options,$provider_hash,$mediainfo,$moviesheet,$token,$parser,$template_xml);
+			AddTextElement($config_options,$provider_hash,$moviesheet,$token,$parser,$template_xml);
     }
 	}
 	return $moviesheet;
@@ -1171,12 +1136,15 @@ sub Interactive {
 	my %menu;
 
   foreach (@{ $xml_root->{OpenSearchDescription}->{movies}->{movie} } ) {
-			my $key="$_->{name} -- $_->{overview}";
+			my $key=sprintf("%s -- %s",$_->{name} ,$_->{overview});
+			$key= decode_entities($key);
 			$menu{substr($key,0,90)}=$_->{id} unless ($key eq '');
+			my $count= keys %menu;
+			last if $count == 26;
   }
 
-	 prompt ("\nPlease identify which movie entry $file_name is:", -menu=>\%menu);
-	 return $_;
+	prompt ("\nPlease identify which movie entry $file_name is:", -menu=>\%menu);
+	return $_;
 }
 
 
@@ -1327,77 +1295,49 @@ sub GetMediaInfo {
 
 	my $media_info=$ob->simple();
 
-	$provider_hash->{DURATIONTEXT}				= (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[1]->{Duration};
-	$provider_hash->{FRAMERATETEXT}				= (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[1]->{Frame_rate};
-	$provider_hash->{AUDIOCODECTEXT}			= (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[2]->{Codec_ID};
-	$provider_hash->{ASPECTRATIOTEXT}			= (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[1]->{Display_aspect_ratio};
-	$provider_hash->{VIDEOBITRATETEXT}		= (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[1]->{Bit_rate}; 
-	$provider_hash->{AUDIOBITRATETEXT}		= (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[2]->{Bit_rate};
-	$provider_hash->{FILESIZETEXT}				= (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[0]->{File_size};
-	$provider_hash->{VIDEORESOLUTIONTEXT}	= (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :sprintf("%sx%s",$media_info->{Mediainfo}->{File}->{track}->[1]->{Width},$media_info->{Mediainfo}->{File}->{track}->[1]->{Height});
-	$provider_hash->{VIDEORESOLUTIONTEXT} =~ s/pixels//g;
-	$provider_hash->{AUDIOCHANNELSTEXT}		= (ref $media_info->{Mediainfo}->{File}->{track} eq "HASH")  ? '' :$media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_};
-	$provider_hash->{AUDIOCHANNELSTEXT}		=~ s/(\d+) .*$/$1 /;
-
-	# supported values		Divx, xvid, wmv, avc, mpeg 
-	$provider_hash->{VIDEOFORMAT}					= (ref($media_info->{Mediainfo}->{File}->{track}) eq "ARRAY" ) ? '' : lc($media_info->{Mediainfo}->{File}->{track}->[1]->{Format});
-
-
-
-
-#				if ($$string =~ /\%MEDIAFORMAT\%/ and (ref($media_info->{Mediainfo}->{File}->{track}) eq "ARRAY" ) ) {
-#				my $rep="";
-#				my $format=$media_info->{Mediainfo}->{File}->{track}->[0]->{Format};
-#				
-#				if ( $format =~ /Matroska/i ) { $format="mkv" }
-#				if ( $format =~ /avi/i ) { $format="mpeg" }
-#				foreach (@{$template_xml->{Template}->{MediaFormats}->{MediaFormat} }) {
-#				$rep = $_->{Image}->{value} if $format =~  /$_->{Text}->{value}/i;
-#				}
-#				$$string =~ s/\%MEDIAFORMAT\%/$rep/;
-#				}
-#				
-#				if ($$string =~ /\%RESOLUTION\%/ ) {
-#				my $rep=qw/%PATH%\..\Common\image_resolution\720.png/;
-#				$$string =~ s/\%RESOLUTION\%/$rep/;
-#				}
-#				
-#				if ($$string =~ /\%SOUNDFORMAT\%/ and (ref($media_info->{Mediainfo}->{File}->{track}) eq "ARRAY" ) ) {
-#				# this is a bit more involved given the permutations of media formats
-#				my $format=$media_info->{Mediainfo}->{File}->{track}->[2]->{Format};
-#				my $format_version=$media_info->{Mediainfo}->{File}->{track}->[2]->{Format_version};
-#				my $channels=$media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_};
-#				my $text;
-#				my $rep="";
-#				
-#				if ( $format =~ /mpeg/i ) {
-#				if ( $format_version =~ /1/ ) {
-#				$text="MP3 1.0";
-#				}
-#				elsif ( $format_version =~ /2/ ) {
-#				$text="MP3 2.0";
-#				}
-#				else {
-#				$text="All Mpeg";
-#				}
-#				} else {
-#				if ( $format =~ /AC-3/i ) {
-#				$text="AAC Unknown";
-#				}
-#				# still need to add different format versions.  Once I have more data from mediainfo output I can fill this in
-#				}
-#				# elses for other formats
-#				
-#				foreach (@{$template_xml->{Template}->{SoundFormats}->{SoundFormat} }) {
-#				$rep = $_->{Image}->{value} if $text =~  /$_->{Text}->{value}/i;
-#				}
-#				$$string =~ s/\%SOUNDFORMAT\%/$rep/;
-#				}
-
+	if (ref($media_info->{Mediainfo}->{File}->{track}) eq "ARRAY" )  {
+		$provider_hash->{DURATIONTEXT}				= $media_info->{Mediainfo}->{File}->{track}->[1]->{Duration};
+		$provider_hash->{FRAMERATETEXT}				= $media_info->{Mediainfo}->{File}->{track}->[1]->{Frame_rate};
+		$provider_hash->{AUDIOCODECTEXT}			= $media_info->{Mediainfo}->{File}->{track}->[2]->{Codec_ID};
+		$provider_hash->{ASPECTRATIOTEXT}			= $media_info->{Mediainfo}->{File}->{track}->[1]->{Display_aspect_ratio};
+		$provider_hash->{VIDEOBITRATETEXT}		= $media_info->{Mediainfo}->{File}->{track}->[1]->{Bit_rate}; 
+		$provider_hash->{AUDIOBITRATETEXT}		= $media_info->{Mediainfo}->{File}->{track}->[2]->{Bit_rate};
+		$provider_hash->{FILESIZETEXT}				= $media_info->{Mediainfo}->{File}->{track}->[0]->{File_size};
+		$provider_hash->{VIDEORESOLUTIONTEXT}	= sprintf("%sx%s",$media_info->{Mediainfo}->{File}->{track}->[1]->{Width},$media_info->{Mediainfo}->{File}->{track}->[1]->{Height});
+		$provider_hash->{VIDEORESOLUTIONTEXT} =~ s/pixels//g;
+		$provider_hash->{VIDEORESOLUTIONTEXT} =~ s/\s//g;
+		$provider_hash->{AUDIOCHANNELSTEXT}		= $media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_};
+		$provider_hash->{AUDIOCHANNELSTEXT}		=~ s/(\d+) .*$/$1 /;
 	
-
-	return $media_info;
-
+		# supported values		Divx, xvid, wmv, avc, mpeg 
+		$provider_hash->{VIDEOFORMAT}					= lc($media_info->{Mediainfo}->{File}->{track}->[1]->{Format});
+	
+		# supported values BLURAY, DVD, MKV, mpeg4, Mov, rmvb
+		$provider_hash->{MEDIAFORMAT}					= lc($media_info->{Mediainfo}->{File}->{track}->[0]->{Format});
+		$provider_hash->{MEDIAFORMAT}					=~ s/Matroska/mkv/i;
+		$provider_hash->{MEDIAFORMAT}					=~ s/avi/mpeg/i;
+	
+		# supported values AAC51, AAC, AAC20, DD51, DD20, DTS51, MP3, FLAC, WMA, VORBIS, DTSHD, DTRUEHD
+		$provider_hash->{SOUNDFORMAT}					= lc($media_info->{Mediainfo}->{File}->{track}->[2]->{Format});
+		$provider_hash->{SOUNDFORMAT}					=~ s/AC-3/AAC/i;
+		# more search/replace as found.
+	
+		# internal subtitles
+		my @sub_ary=map{$_->{type} =~ /text/i ? $_->{Language} : () } @{$media_info->{Mediainfo}->{File}->{track}};
+		my $counter=1;
+		foreach (@sub_ary) {
+			$provider_hash->{"SUBTITLES$counter"}=lc($_);
+			$counter++;
+		}
+	
+		my $suffix	= lc(substr($media_info->{Mediainfo}->{File}->{track}->[1]->{Scan_Type},0,1)) ;
+		my $height	= lc($media_info->{Mediainfo}->{File}->{track}->[1]->{Height}) ;
+		if ($height > 720) { $provider_hash->{RESOLUTION} = sprintf ("1080%s",$suffix); }
+		elsif ($height > 576) { $provider_hash->{RESOLUTION} = sprintf ("720%s",$suffix); }
+		elsif ($height > 480) { $provider_hash->{RESOLUTION} = sprintf ("576%s",$suffix); }
+		elsif ($height > 288) { $provider_hash->{RESOLUTION} = sprintf ("480%s",$suffix); }
+		else { $provider_hash->{RESOLUTION} = "288p" ; }
+	}
 }
 
 
@@ -1473,10 +1413,10 @@ sub ScanMovieDir {
 				GetMediaDetails_imdb($config_options,\%provider_hash);
 
 				# get the media_info hash
-				my $mediainfo=GetMediaInfo($config_options,\%provider_hash);
+				GetMediaInfo($config_options,\%provider_hash);
 
 				# start the movie sheet generation
-				$moviesheet=generate_moviesheet($config_options, \%provider_hash, $mediainfo);
+				$moviesheet=generate_moviesheet($config_options, \%provider_hash);
 				Logger($config_options,"Writing $provider_hash{FULLMOVIEPATH}_sheet.jpg","INFO");
 				$moviesheet->Write("$provider_hash{FULLMOVIEPATH}_sheet.jpg");
 

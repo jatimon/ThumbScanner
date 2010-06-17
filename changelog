@@ -1,3 +1,11 @@
+v 0.6
+- Implemented Glow
+- Implemented AdjustGamma
+- Implemented AdjustHue
+- add TOKEN RUNTIME
+- add TOKEN RELEASEDATE
+
+
 v 0.5
 - removed provider selection ability.  We use both, themoviedb for fanart and imdb for the rest
 - MOVIEPARENTFOLDER has replace MOVIEDIR in the engine.conf

@@ -100,7 +100,7 @@ sub DropShadow {
 		$dir_y = 1;
 	}
 	elsif ( ($true_angle >= 180) && ($true_angle < 270) ) {
-		$angle = $true_angle-1800;
+		$angle = $true_angle-180;
 		$dir_x = -1;
 		$dir_y = 1;
 	}
@@ -143,6 +143,30 @@ sub DropShadow {
 	undef $shadow_image;
 	return $new_image;
 }
+
+sub Glow {
+
+	my $config_options=shift;
+  my $base_image=shift;
+  my $color=shift;
+  my $opacity=shift;
+  my $sigma=shift;
+
+  my $color=GetColor($color);
+  my ($width, $height) = $base_image->Get('columns', 'rows');
+
+  my $shadow_image=Image::Magick->new(Magick=>'png');
+  $shadow_image=$base_image->Clone();
+  $shadow_image->Set(background=>$color);
+  $shadow_image->Shadow(opacity=>$opacity,sigma=>$sigma,X=>0, Y=>0);
+
+  $shadow_image->Composite(image=>$base_image,x=>$sigma*2,y=>$sigma*2,compose=>'src-over');
+
+  $shadow_image->Crop(x=>-$sigma,y=>-$sigma,width=>$width+(2*$sigma),height=>$height+(2*$sigma));
+  return $shadow_image;
+
+}
+
 
 sub GlassTable {
 # emulate the glasstable effect with ImageMagick
@@ -529,6 +553,22 @@ sub AddImageElement {
 							$token->attr->{ReflectionOpacity}, 
 							$token->attr->{ReflectionPercentage});
 					}
+					elsif ( ($token->tag =~ /Glow/i) && ($token->is_start_tag)  ) {
+						Logger($config_options,"Glow $sourceData ","DEBUG");
+						$temp=Glow($config_options,$temp,
+							$token->attr->{Color},
+							$token->attr->{Opacity},
+							$token->attr->{Softness});
+					}		
+					elsif ( ($token->tag =~ /AdjustHue/i) && ($token->is_start_tag)  ) {
+						Logger($config_options,"Adjusting Hue for $sourceData","DEBUG");
+						$temp->Modulate(hue=>$token->attr->{Angle});
+					}		
+					elsif ( ($token->tag =~ /AdjustGamma/i) && ($token->is_start_tag)  ) {
+						my $gamma=($token->attr->{Gamma}/100)+1;
+						Logger($config_options,"Adjusting Gamma for $sourceData to $gamma ","DEBUG");
+						$temp->Gamma(gamma=>$gamma);
+					}		
 					elsif ( ($token->tag =~ /AdjustOpacity/i) && ($token->is_start_tag)  ) {
 						my $opacity_percent=($token->attr->{Opacity}/100);
 						Logger($config_options,"Adjusting Opacity $sourceData by $opacity_percent","DEBUG");
@@ -830,6 +870,14 @@ sub DeTokenize {
 
 	if ($$string =~ /\%COUNTRIES\%/ ) {
 		$$string =~ s/\%COUNTRIES\%/$provider_hash->{COUNTRIES}/;
+	}
+
+	if ($$string =~ /\%RUNTIME\%/ ) {
+		$$string =~ s/\%RUNTIME\%/$provider_hash->{RUNTIME}/;
+	}
+
+	if ($$string =~ /\%RELEASEDATE\%/ ) {
+		$$string =~ s/\%RELEASEDATE\%/$provider_hash->{RELEASEDATE}/;
 	}
 
 	if ($$string =~ /\%CERTIFICATION\%/ ) {
@@ -1252,6 +1300,8 @@ sub GetMediaDetails_tmdb {
      $provider_hash->{BACKGROUND}=$backdrops[0];
   }
 
+	$provider_hash->{RELEASEDATE} = $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{released}->{value};
+
   my @fanart;
   # grab the fanart image from themoviedb
    foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
@@ -1308,6 +1358,9 @@ sub GetMediaInfo {
 		$provider_hash->{VIDEORESOLUTIONTEXT} =~ s/\s//g;
 		$provider_hash->{AUDIOCHANNELSTEXT}		= $media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_};
 		$provider_hash->{AUDIOCHANNELSTEXT}		=~ s/(\d+) .*$/$1 /;
+		my $runtime=$media_info->{Mediainfo}->{File}->{track}->[0]->{Duration};
+		$runtime =~ /(\d+)h\s*(\d+)mn/;
+		$provider_hash->{RUNTIME}							= $2+($1*60);
 	
 		# supported values		Divx, xvid, wmv, avc, mpeg 
 		$provider_hash->{VIDEOFORMAT}					= lc($media_info->{Mediainfo}->{File}->{track}->[1]->{Format});

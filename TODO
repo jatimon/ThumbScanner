@@ -1,6 +1,9 @@
 - a couple of image transforms remain to be done
-	- create image effect Glow
-	- create image effect AdjustGamma
+	- Text Element DistortCorners
+	- Image Element DistortCorners
+	- Image Element Feather
+- add TOKENS 
+	- SUBTITLES and EXTERNALSUBTITLES  (array of text languages for subtitles)
 - figure out how to determine language of external subtitles. .srt files
 - perhaps a script to add fonts to imagemagick
 - fix for .iso files
@@ -13,3 +16,4 @@
 - roll it all up into an app.bin
 - add more logic for specific audioformats
 - search directories for only specific file suffixes, .iso .ifo
+- some stars are cut in half.  example Plasmator Uber - Red Curtain

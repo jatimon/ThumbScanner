@@ -472,7 +472,9 @@ sub AddImageElement {
     	$temp->Read($source);
 			my ($width, $height) = $temp->Get('columns', 'rows');
 			# single star
-			$temp->Crop(width=>$width/2,height=>$height);
+			if ($width>24) {
+				$temp->Crop(width=>$width/2,height=>$height);
+			}
 			my $rating_image=Image::Magick->new(magick=>'png');
 
 			my ($full_stars,$remainder) = split (/\./, $rating);
@@ -501,7 +503,7 @@ sub AddImageElement {
 			next unless DeTokenize($config_options,\$sourceData,$provider_hash,$template_xml);
 
 			if ($sourceData eq "") {
-				Logger($config_options,"I was unable to find image element information movie .. ".$token->attr->{Name},"CRIT");
+				Logger($config_options,"I was unable to find image element information .. ".$token->attr->{Name},"CRIT");
 				$temp->Read('xc:none');
 				next;
 			}
@@ -559,6 +561,10 @@ sub AddImageElement {
 							$token->attr->{Color},
 							$token->attr->{Opacity},
 							$token->attr->{Softness});
+					}		
+					elsif ( ($token->tag =~ /GaussianBlur/i) && ($token->is_start_tag)  ) {
+						Logger($config_options,"Applying GaussianBlur to $sourceData","DEBUG");
+						$temp->Blur(sigma=>$token->attr->{Radius},radius=>3*$token->attr->{Radius});
 					}		
 					elsif ( ($token->tag =~ /AdjustHue/i) && ($token->is_start_tag)  ) {
 						Logger($config_options,"Adjusting Hue for $sourceData","DEBUG");
@@ -900,6 +906,14 @@ sub DeTokenize {
 		$$string =~ s/\%EXTERNALSUBTITLES$1\%/NONE/;
 	}
 
+	if ($$string =~ /\%EXTERNALSUBTITLESTEXT\%/ ) {
+		$$string =~ s/\%EXTERNALSUBTITLESTEXT\%//;
+	}
+
+	if ($$string =~ /\%EXTERNALSUBTITLES\%/ ) {
+		$$string =~ s/\%EXTERNALSUBTITLES\%/NONE/;
+	}
+
 	if ($$string =~ /\%SUBTITLES(\d)\%/ ) {
 		my $rep= $provider_hash->{"SUBTITLES$1"},"\n";	
 		$$string =~ s/\%SUBTITLES$1\%/$rep/;
@@ -1004,6 +1018,7 @@ sub DeTokenize {
 		foreach (@{$template_xml->{Template}->{VideoFormats}->{VideoFormat} }) {
 			$rep = $_->{Image}->{value} if $provider_hash->{VIDEOFORMAT} =~  /$_->{Text}->{value}/i;
 		}
+		Logger($config_options,"VIDEOFORMAT $provider_hash->{VIDEOFORMAT} resolves to $rep","DEBUG");
 		$$string =~ s/\%VIDEOFORMAT\%/$rep/;
 	}
 
@@ -1016,8 +1031,36 @@ sub DeTokenize {
 	}
 
 	if ($$string =~ /\%SOUNDFORMAT\%/ ) {
-		my @rep = map{$_->{Name}->{value} eq $provider_hash->{SOUNDFORMAT} ? $_->{Image}->{value} : '' } @{$template_xml->{Template}->{SoundFormats}->{SoundFormat} };
-		$$string =~ s/\%SOUNDFORMAT\%/$rep[0]/;
+		my $rep="";
+		foreach (@{$template_xml->{Template}->{SoundFormats}->{SoundFormat} }) {
+			$rep = $_->{Image}->{value} if $provider_hash->{SOUNDFORMAT} =~  /$_->{Text}->{value}/i;
+		}
+		Logger($config_options,"SOUNDFORMAT $provider_hash->{SOUNDFORMAT} resolves to $rep","DEBUG");
+		$$string =~ s/\%SOUNDFORMAT\%/$rep/;
+	}
+
+	if ($$string =~ /\%SUBTITLESTEXT\%/ ) {
+		my @subs=@{$provider_hash->{SUBTITLESTEXT}};
+
+		my $max=$template_xml->{Template}->{Settings}->{Subtitles}->{MaximumValues}->{value};
+		my $join_char=$template_xml->{Template}->{Settings}->{Subtitles}->{Separator}->{value};
+
+		# truncate the array if necessary
+		$#subs=($max-1) if $#subs>$max;
+		my $rep=join($join_char,@subs);
+		$$string =~ s/\%SUBTITLESTEXT\%/$rep/;
+	}
+
+	if ($$string =~ /\%SUBTITLES\%/ ) {
+		my @subs=@{$provider_hash->{SUBTITLES}};
+
+		my $max=$template_xml->{Template}->{Settings}->{Subtitles}->{MaximumValues}->{value};
+		my $join_char=$template_xml->{Template}->{Settings}->{Subtitles}->{Separator}->{value};
+
+		# truncate the array if necessary
+		$#subs=($max-1) if $#subs>$max;
+		my $rep=join($join_char,@subs);
+		$$string =~ s/\%SUBTITLES\%/$rep/;
 	}
 
 	if ($$string =~ /\%ACTORS\%/ ) {
@@ -1364,6 +1407,7 @@ sub GetMediaInfo {
 	
 		# supported values		Divx, xvid, wmv, avc, mpeg 
 		$provider_hash->{VIDEOFORMAT}					= lc($media_info->{Mediainfo}->{File}->{track}->[1]->{Format});
+		$provider_hash->{VIDEOFORMAT}					=~ s/mpeg-4 visual/divx/i;
 	
 		# supported values BLURAY, DVD, MKV, mpeg4, Mov, rmvb
 		$provider_hash->{MEDIAFORMAT}					= lc($media_info->{Mediainfo}->{File}->{track}->[0]->{Format});
@@ -1372,16 +1416,22 @@ sub GetMediaInfo {
 	
 		# supported values AAC51, AAC, AAC20, DD51, DD20, DTS51, MP3, FLAC, WMA, VORBIS, DTSHD, DTRUEHD
 		$provider_hash->{SOUNDFORMAT}					= lc($media_info->{Mediainfo}->{File}->{track}->[2]->{Format});
-		$provider_hash->{SOUNDFORMAT}					=~ s/AC-3/AAC/i;
+		$provider_hash->{SOUNDFORMAT}					=~ s/AC-3/AAC Unknown/i;
+		$provider_hash->{SOUNDFORMAT}					=~ s/.*mpeg.*/All MPEG/i;
 		# more search/replace as found.
 	
 		# internal subtitles
 		my @sub_ary=map{$_->{type} =~ /text/i ? $_->{Language} : () } @{$media_info->{Mediainfo}->{File}->{track}};
+		$provider_hash->{SUBTITLESTEXT}=\@sub_ary;
+		$provider_hash->{SUBTITLES}=\@sub_ary;
 		my $counter=1;
 		foreach (@sub_ary) {
 			$provider_hash->{"SUBTITLES$counter"}=lc($_);
 			$counter++;
 		}
+
+		$provider_hash->{EXTERNALSUBTITLES}		= '';
+		$provider_hash->{EXTERNALSUBTITLESTEXT}		= '';
 	
 		my $suffix	= lc(substr($media_info->{Mediainfo}->{File}->{track}->[1]->{Scan_Type},0,1)) ;
 		my $height	= lc($media_info->{Mediainfo}->{File}->{track}->[1]->{Height}) ;

@@ -3,7 +3,7 @@
 	- Image Element DistortCorners
 	- Image Element Feather
 - add TOKENS 
-	- SUBTITLES and EXTERNALSUBTITLES  (array of text languages for subtitles)
+	- EXTERNALSUBTITLES  (array of text languages for subtitles)
 - figure out how to determine language of external subtitles. .srt files
 - perhaps a script to add fonts to imagemagick
 - fix for .iso files

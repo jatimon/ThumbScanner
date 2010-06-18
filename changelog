@@ -2,8 +2,12 @@ v 0.6
 - Implemented Glow
 - Implemented AdjustGamma
 - Implemented AdjustHue
+- Implemented Gaussian Blur
 - add TOKEN RUNTIME
 - add TOKEN RELEASEDATE
+- add TOKEN SUBTITLES 
+- fixed bug that choped stars if the provided image was actually 24x24
+- added TOKENS %EXTERNALSUBTITLESTEXT% %SUBTITLESTEXT%
 
 
 v 0.5

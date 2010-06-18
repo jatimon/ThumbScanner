@@ -29,6 +29,22 @@
  %DURATIONTEXT%								|	The detected (mediainfo) duration of the movie (formatted in hours and minutes) 	1h 36m
  %FILESIZETEXT%								|	The detected (mediainfo) filesize of the movie (formatted using KB, MB and GB) 	781.95 MB
  %VIDEORESOLUTIONTEXT%				|	The movie resolution 	1920x1080
+ %MOVIEFILENAME%							|	Current movie filename 	Spread.2009.mkv (for c:\movies\spread\spread.2009.mkv)
+ %TITLEPATH%									|	Current movie folder path without trailing backslash 	C:\Movies\Cars
+ %MOVIEFILENAMEWITHOUTEXT%		|	Current movie filename without extension 	Spread.2009 (for c:\Movies\Spread\Spread.2009.mkv)
+ %MOVIEFOLDER%								|	Current movie folder name 	Spread (for c:\Movies\Spread\Spread.2009.mkv)
+ %MOVIEPARENTFOLDER%					|	Current movie parent folder name 	Movies (for c:\Movies\Spread\Spread.2009.mkv)
+ %PATH%												|	Template folder without trailing backslash 	 C:\ThumbGen\Templates\MyTemplate
+ %FANART1%										|	Path to the Fanart 1 selected in ThumbGen 	{image selected as fanart1}
+ %FANART2%										|	Path to the Fanart 2 selected in ThumbGen 	{image selected as fanart2}
+ %FANART3%										|	Path to the Fanart 3 selected in ThumbGen 	{image selected as fanart3}
+ %BACKGROUND%									|	Path to the backdrop selected in ThumbGen 	{image selected as backdrop}
+ %COVER%											|	Path to the Cover selected in ThumbGen 	{image selected as cover}
+ %RELEASEDATE%								|	Release date 	12.03.2010 (formatted using collector's format)
+ %SUBTITLES%									|	List of embedded subtitles (English names) 	English, French *
+ %MOVIEFILENAME%							|	Current movie filename 	Spread.2009.mkv (for c:\movies\spread\spread.2009.mkv)
+ %MOVIEPARENTFOLDER%					|	Current movie parent folder name 	Movies (for c:\Movies\Spread\Spread.2009.mkv)
+
 
 ---- Unimplemented Tags ----
  %CERTIFICATIONCOUNTRYCODE%		|	The two letter code of the country selected in Options/IMDB as Certification Country (default value: us) 	es 
@@ -36,8 +52,6 @@
  %LANGUAGECODE%								|	The two letter ISO code of the language of the first audio stream 	en
  %CONTAINERTEXT%							|	The detected (mediainfo) container format (as it comes from MediaInfo) 	Matroska
  %CERTIFICATIONTEXT%					|	Movie certification 	PG-13
- %RELEASEDATE%								|	Release date 	12.03.2010 (formatted using collector's format)
- %SUBTITLES%									|	List of embedded subtitles (English names) 	English, French *
  %SUBTITLES1%									|… %SUBTITLES5%		|	Individual embedded subtitles (English names) 	English
  %SUBTITLESTEXT%							|	List of embedded subtitles (Native names) 	English, Francais, Deutsch *
  %EXTERNALSUBTITLESTEXT%			|	List of embedded subtitles (Native names) 	English, Francais, Deutsch *
@@ -51,29 +65,13 @@
  %EPISODERELEASEDATE%					|	Release date of the current episode 	12.03.2010 (formatted using collector's format)
  %EPISODELIST%								|	List of episodes for the current season 	1, 2, 3 *
  %EPISODENAMESLIST%						|	List of episodes titles for the current season 	Title One, Title Two *
- %MOVIEFILENAME%							|	Current movie filename 	Spread.2009.mkv (for c:\movies\spread\spread.2009.mkv)
  %TITLEPATH%									|	Current movie folder path without trailing backslash 	C:\Movies\Cars
  %MOVIEFILENAMEWITHOUTEXT%		|	Current movie filename without extension 	Spread.2009 (for c:\Movies\Spread\Spread.2009.mkv)
  %MOVIEFOLDER%								|	Current movie folder name 	Spread (for c:\Movies\Spread\Spread.2009.mkv)
- %MOVIEPARENTFOLDER%					|	Current movie parent folder name 	Movies (for c:\Movies\Spread\Spread.2009.mkv)
  %AUDIOCODECTEXT%							|	The CodecID value for the audio codec 	AC-3
 
 
 ---- TOKENS that can be in a conf file ----
  %PATH%												|	Template folder without trailing backslash 	 C:\ThumbGen\Templates\MyTemplate
  %MOVIEPARENTFOLDER%					|	Current movie parent folder name 	Movies (for c:\Movies\Spread\Spread.2009.mkv)
-
-
----- TOKENS to put in provider_hash ----
- %MOVIEFILENAME%							|	Current movie filename 	Spread.2009.mkv (for c:\movies\spread\spread.2009.mkv)
- %TITLEPATH%									|	Current movie folder path without trailing backslash 	C:\Movies\Cars
- %MOVIEFILENAMEWITHOUTEXT%		|	Current movie filename without extension 	Spread.2009 (for c:\Movies\Spread\Spread.2009.mkv)
- %MOVIEFOLDER%								|	Current movie folder name 	Spread (for c:\Movies\Spread\Spread.2009.mkv)
- %MOVIEPARENTFOLDER%					|	Current movie parent folder name 	Movies (for c:\Movies\Spread\Spread.2009.mkv)
- %PATH%												|	Template folder without trailing backslash 	 C:\ThumbGen\Templates\MyTemplate
- %FANART1%										|	Path to the Fanart 1 selected in ThumbGen 	{image selected as fanart1}
- %FANART2%										|	Path to the Fanart 2 selected in ThumbGen 	{image selected as fanart2}
- %FANART3%										|	Path to the Fanart 3 selected in ThumbGen 	{image selected as fanart3}
- %BACKGROUND%									|	Path to the backdrop selected in ThumbGen 	{image selected as backdrop}
- %COVER%											|	Path to the Cover selected in ThumbGen 	{image selected as cover}
 

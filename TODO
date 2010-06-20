@@ -17,3 +17,7 @@
 - add more logic for specific audioformats
 - search directories for only specific file suffixes, .iso .ifo
 - some stars are cut in half.  example Plasmator Uber - Red Curtain
+- Just a note: is it possible to use "tgmd" files created by ThumbGen?
+- Error checking moviedb results
+- moviemeter.nl has API : http://wiki.moviemeter.nl/index.php/API
+- include mediainfo output in DEBUG

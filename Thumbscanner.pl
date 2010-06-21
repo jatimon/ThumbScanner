@@ -37,6 +37,7 @@ sub Logger {
 #     NOTICE     normal, but significant, condition
 #     INFO       informational message
 #     DEBUG      debug-level message
+	
 	my $config_options=shift;
 	my $message=shift;
 	my $level=shift;
@@ -839,21 +840,29 @@ sub TextWrap {
 	foreach (@ary) {
   	$temp_img->Set(size=>sprintf("%dx100",$image_width));
   	$temp_img->Read('xc:none');
-  	$temp_img->Annotate(text=>"$running_text $_",font=>$family,pointsize=>$point);
+		if ($running_text eq "") {
+  		$temp_img->Annotate(text=>"$_",font=>$family,pointsize=>$point);
+		}
+		else {
+  		$temp_img->Annotate(text=>"$running_text $_",font=>$family,pointsize=>$point);
+		}
 		if (($temp_img->QueryFontMetrics(text=>"$running_text $_",font=>$family,pointsize=>$point))[4] < $image_width ) {
-  		$running_text="$running_text $_";
+			if ($running_text eq "") {
+  			$running_text="$_";
+			}
+			else {
+  			$running_text="$running_text $_";
+			}
 		}
 		else {
 			$new_text.="$running_text\n";
 			$running_text=$_;
 		}
   	@$temp_img=();
-}
-		$new_text.="$running_text\n";
+	}
+	$new_text.="$running_text\n";
 			
 	return $new_text;
-
-
 }
 
 #---------------------------------------------------------------------------------------------
@@ -1069,6 +1078,7 @@ sub DeTokenize {
 		# we have an array of every director in this movie.  the template defines a max and a join character
 		my $max=$template_xml->{Template}->{Settings}->{Actors}->{MaximumValues}->{value};
 		my $join_char=$template_xml->{Template}->{Settings}->{Actors}->{Separator}->{value};
+#if ($join_char =~ /   /) {$join_char="\\n";}
 
 		# truncate the array if necessary
 		$#actors=($max-1) if $#actors>$max;
@@ -1272,8 +1282,11 @@ sub GetTmdbID {
 			$tmdb_id=$xml_root->{OpenSearchDescription}->{movies}->{movie}->[0]->{id};
 		}
 	}
-	else {
+	elsif ($xml_root->{OpenSearchDescription}->{'opensearch:totalResults'} == 1) {
 		$tmdb_id=$xml_root->{OpenSearchDescription}->{movies}->{movie}->{id};
+	}
+	else {
+		Logger ($config_options,"I was unable to find any information for $movie_name","DEBUG");
 	}
 
 	Logger($config_options,"Found tmdb_id='$tmdb_id'","DEBUG");
@@ -1502,7 +1515,6 @@ sub ScanMovieDir {
 			$provider_hash{MOVIEFILENAMEWITHOUTEXT} =~ s/\.\w+$//; # remove the trailing suffix
 			Logger($config_options,"Processing $provider_hash{FULLMOVIEPATH} as a movie","DEBUG");
 			Logger($config_options,"Creating a moviesheet for $provider_hash{MOVIEFILENAME}","INFO");
-
 			
 			my $clean_name=clean_name($provider_hash{MOVIEFILENAME});
 			if ( ($config_options->{OVERWRITE}) || !( -e "$provider_hash{MOVIEFILENAMEWITHOUTEXT}.jpg"))  {
@@ -1517,6 +1529,10 @@ sub ScanMovieDir {
 
 				# get the media_info hash
 				GetMediaInfo($config_options,\%provider_hash);
+
+				# log the provider_hash;
+				my $tmp_string=Dumper(\%provider_hash);
+				Logger ($config_options,$tmp_string,"DEBUG");
 
 				# start the movie sheet generation
 				$moviesheet=generate_moviesheet($config_options, \%provider_hash);
@@ -1582,6 +1598,7 @@ $config_options{OVERWRITE}=$overwrite;
 $config_options{CONF_FILE}=$conf_file;
 $config_options{RECURSE}=$recurse;
 $config_options{INTERACTIVE}=$interactive;
+$config_options{VERSION}="v 0.6";
 
 # read in the options in the config file
 open (FD, $config_options{CONF_FILE}) or die "Unable to open config file $config_options{CONF_FILE}\n";

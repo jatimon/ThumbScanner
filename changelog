@@ -8,6 +8,8 @@ v 0.6
 - add TOKEN SUBTITLES 
 - fixed bug that choped stars if the provided image was actually 24x24
 - added TOKENS %EXTERNALSUBTITLESTEXT% %SUBTITLESTEXT%
+- include mediainfo output in DEBUG
+- Error checking moviedb results
 
 
 v 0.5
@@ -40,5 +42,4 @@ v 0.4
 v 0.3
 - added command line arguments
 - added conf file
-- debugged some logic to prevent imagemagick from opening non existant image
-files
+- debugged some logic to prevent imagemagick from opening non existant image files

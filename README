@@ -59,6 +59,7 @@ LWP::UserAgent
 HTML::Entities
 IO::Prompt
 IMDB::Film
+XML::RPC
 
 Most of these are Core Modules, however you will need to install
 
@@ -70,6 +71,7 @@ LWP::UserAgent
 HTML::Entities
 IO::Prompt
 IMDB::Film
+XML::RPC
 
 - Template files.  It is built against Dribblers Templates.
 

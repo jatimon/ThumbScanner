@@ -17,6 +17,7 @@ use LWP::UserAgent;
 use HTML::Entities;
 use IO::Prompt;
 use IMDB::Film;
+use XML::RPC;
 
 #---------------------------------------------------------------------------------------------
 #
@@ -759,7 +760,7 @@ sub AddTextElement {
 	my @text_attributes=$temp->QueryFontMetrics(text=>$string, fill=>$forecolor, font=>$font_hash->{Family}, pointsize=>$font_hash->{Size} ,antialias=>'True', gravity=>$gravity);
 	if ($text_attributes[4] > $token->attr->{Width} ) {
 		# time to wrap some text
-		$string=TextWrap($string, $token->attr->{Width}, $font_hash->{Family}, $font_hash->{Size})
+		$string=TextWrap($config_options,$string, $token->attr->{Width}, $font_hash->{Family}, $font_hash->{Size})
 	}
 
 	my %text_attributes=(
@@ -823,6 +824,7 @@ sub AddTextElement {
 
 sub TextWrap {
 # wrap some text
+	my $config_options=shift;
 	my $string=shift;
 	my $image_width=shift;
 	my $family=shift;
@@ -835,32 +837,42 @@ sub TextWrap {
 	my $new_text;
 	my $running_text="";
 
-	my @ary=split(/\s/,$string);
+	Logger($config_options,"Text Wrap before ->".$string,"DEBUG");
 
-	foreach (@ary) {
+	$string =~ /^(\s+)\w/;
+	my $indent=$1;
+	my @ary=split(/\s/,$string);
+	my $first=1;
+
+	foreach my $word (@ary) {
+		next if ( ($word eq '') && ($first == 1) );
   	$temp_img->Set(size=>sprintf("%dx100",$image_width));
   	$temp_img->Read('xc:none');
-		if ($running_text eq "") {
-  		$temp_img->Annotate(text=>"$_",font=>$family,pointsize=>$point);
+		if ( (length ($running_text) == 0) && (length ($indent) >0) ) {
+			$running_text=$indent;
+  		$temp_img->Annotate(text=>$running_text.$word,font=>$family,pointsize=>$point);
 		}
 		else {
-  		$temp_img->Annotate(text=>"$running_text $_",font=>$family,pointsize=>$point);
+  		$temp_img->Annotate(text=>"$running_text $word",font=>$family,pointsize=>$point);
 		}
-		if (($temp_img->QueryFontMetrics(text=>"$running_text $_",font=>$family,pointsize=>$point))[4] < $image_width ) {
-			if ($running_text eq "") {
-  			$running_text="$_";
+		if (($temp_img->QueryFontMetrics(text=>"$running_text $word",font=>$family,pointsize=>$point))[4] < $image_width ) {
+			if ($first == 1) {
+  			$running_text=$running_text.$word;
+				$first=0;
 			}
-			else {
-  			$running_text="$running_text $_";
+			else{
+  			$running_text="$running_text $word";
 			}
 		}
 		else {
 			$new_text.="$running_text\n";
-			$running_text=$_;
+			$running_text=$word;
 		}
   	@$temp_img=();
 	}
 	$new_text.="$running_text\n";
+
+	Logger($config_options,"Text Wrap after  ->".$new_text,"DEBUG");
 			
 	return $new_text;
 }
@@ -1293,11 +1305,45 @@ sub GetTmdbID {
 	return $tmdb_id;
 }	
 
+sub GetMediaDetails_moviemeter {
+# grab the xml data for this specific movie from moviemeter
+  my $config_options=shift;
+  my $provider_hash=shift;
+
+	my $API_key="szgh9aryd1a45ezhs97fk65zjr05tc17";
+	my $client= XML::RPC->new('http://www.moviemeter.nl/ws');
+
+	my $session = $client->call("api.startSession", $API_key);
+	my $moviemeterID = $client->call("film.retrieveByImdb",$session->{session_key},$provider_hash->{IMDB_ID});
+
+	my $movie_result = $client->call("film.retrieveDetails",$session->{session_key},$moviemeterID);
+
+  my @directors=map {$_->{name}} @{$movie_result->{directors} };
+  my @cast=map {$_->{name}} @{$movie_result->{actors} } ;
+
+  # provider_hash hash
+
+  $provider_hash->{TITLE}= $movie_result->{title};
+  $provider_hash->{ORIGINALTITLE}= $movie_result->{alternative_titles}[0];
+  $provider_hash->{PLOT}= $movie_result->{plot};
+  $provider_hash->{YEAR}= $movie_result->{year};
+  $provider_hash->{ACTORS}= \@cast;
+  $provider_hash->{GENRES}= $movie_result->{genres};
+  $provider_hash->{DIRECTORS}= \@directors;
+  #$provider_hash->{MPAA}= $movie->mpaa_info();
+  $provider_hash->{COUNTRIES}= $movie_result->{countries}->[0]->{iso_3166_1};
+  #$provider_hash->{STUDIOS}= $movie->company();
+  #$provider_hash->{RATING}= $movie->rating();
+  #$provider_hash->{CERTIFICATION}= $cert[0]->{USA};
+  $provider_hash->{RELEASEDATE}= $movie_result->{dates_cinema}->[0]->{date};
+
+}
+
+
 sub GetMediaDetails_imdb {
 # grab the xml data for this specific movie from imdb
 	my $config_options=shift;
 	my $provider_hash=shift;
-
 	
 	my $movie = new IMDB::Film(crit => $provider_hash->{IMDB_ID});
 	
@@ -1525,7 +1571,14 @@ sub ScanMovieDir {
 				}
 				# get more detailed information using the Movie.getInfo call
 				GetMediaDetails_tmdb($config_options,$tmdb_id,\%provider_hash);
-				GetMediaDetails_imdb($config_options,\%provider_hash);
+				if ($config_options->{COLLECTOR} =~ /moviemeter/i ) {
+					Logger($config_options,"Using MOVIEMETER collector ","DEBUG");
+					GetMediaDetails_moviemeter($config_options,\%provider_hash);
+				}
+				else {
+					Logger($config_options,"Using DEFAULT collector ","DEBUG");
+					GetMediaDetails_imdb($config_options,\%provider_hash);
+				}
 
 				# get the media_info hash
 				GetMediaInfo($config_options,\%provider_hash);

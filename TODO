@@ -17,4 +17,4 @@
 - add more logic for specific audioformats
 - search directories for only specific file suffixes, .iso .ifo
 - Just a note: is it possible to use "tgmd" files created by ThumbGen?
-- moviemeter.nl has API : http://wiki.moviemeter.nl/index.php/API
+- moviemeter.nl has API : http://wiki.moviemeter.nl/index.php/API --- this collector doesn't provide all of the required information.  Perhaps I should suppliment with imdb???

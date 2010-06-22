@@ -11,7 +11,7 @@ v 0.6
 - include mediainfo output in DEBUG
 - Error checking moviedb results
 - added moviemeter.nl as a COLLECTOR at dachouffe's request.
-- added initial support for TGMD files, not fully debugged.
+- added initial support for TGMD files, not fully debugged. -t or --tmgd on the command line to perfer use of tgmd files
 
 
 v 0.5

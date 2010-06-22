@@ -17,3 +17,25 @@
 - add more logic for specific audioformats
 - search directories for only specific file suffixes, .iso .ifo
 
+NOTES
+
+- add options for Thumbgen like extra sheets
+			Thumbnail - $M\$N for the small Thumbnail (Cover)
+			Extra Thumbnail - folder for the big Thumbnail
+			Movie Information - Used by tvixie2playonhd to create gernes and to make rss files on the Playon!HD
+			Main Sheet - $M\$N$E_sheet - Main sheet for the Movie jukebox on the Playon!HD
+			Extra Sheet - Used in the browser screen of the Playon!HD
+
+c:\test\movie\movie.avi
+| | $P |  $F |  $N | $E|
+|      $M    |
+
+probably create provider_hash keys such as THUMBGEN_P THUMBGEN_F THUMBGEN_N ...
+
+this variables are useful for a bunch of reasons.
+these seem to map to 
+- Parent $P
+- Folder $F
+- Movie Name $N
+- Extension $E
+- Movie Path $M

@@ -10,6 +10,8 @@ v 0.6
 - added TOKENS %EXTERNALSUBTITLESTEXT% %SUBTITLESTEXT%
 - include mediainfo output in DEBUG
 - Error checking moviedb results
+- added moviemeter.nl as a COLLECTOR at dachouffe's request.
+- added initial support for TGMD files, not fully debugged.
 
 
 v 0.5

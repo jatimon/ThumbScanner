@@ -1330,12 +1330,52 @@ sub GetMediaDetails_moviemeter {
   $provider_hash->{ACTORS}= \@cast;
   $provider_hash->{GENRES}= $movie_result->{genres};
   $provider_hash->{DIRECTORS}= \@directors;
-  #$provider_hash->{MPAA}= $movie->mpaa_info();
   $provider_hash->{COUNTRIES}= $movie_result->{countries}->[0]->{iso_3166_1};
-  #$provider_hash->{STUDIOS}= $movie->company();
-  #$provider_hash->{RATING}= $movie->rating();
-  #$provider_hash->{CERTIFICATION}= $cert[0]->{USA};
   $provider_hash->{RELEASEDATE}= $movie_result->{dates_cinema}->[0]->{date};
+}
+
+sub GetMediaDetails_tgmd {
+# parse a tgmd file
+	my $config_options=shift;
+	my $provider_hash=shift;
+
+	my $tempdir="/var/tmp/$$";
+	mkdir $tempdir;
+
+	$provider_hash->{TGMD_TEMPDIR}=$tempdir;
+
+	system ("unzip -d $tempdir '$provider_hash->{TGMD_FILE}' >/dev/null 2>&1");
+
+	# read in the details
+	# NFO has the goods on the xml
+
+	my $tgmd_obj = new XML::Bare(file => "$tempdir/NFO" );
+	my $tgmd_xml = $tgmd_obj->simple();
+	my @directors;
+	if (ref $tgmd_xml->{movie}->{director}->{name} =~ /array/i ) {
+		@directors=$tgmd_xml->{movie}->{director}->{name};
+	}
+	else {
+		push (@directors, $tgmd_xml->{movie}->{director}->{name} );
+	}
+
+	$provider_hash->{TITLE}= $tgmd_xml->{movie}->{title};
+ 	$provider_hash->{ORIGINALTITLE}= $tgmd_xml->{movie}->{originaltitle};
+ 	$provider_hash->{PLOT}= $tgmd_xml->{movie}->{plot};
+ 	$provider_hash->{YEAR}= $tgmd_xml->{movie}->{year};
+ 	$provider_hash->{ACTORS}= $tgmd_xml->{movie}->{actor}->{name};
+ 	$provider_hash->{GENRES}= $tgmd_xml->{movie}->{genre}->{name};
+ 	$provider_hash->{DIRECTORS}= \@directors;
+ 	$provider_hash->{COUNTRY}= $tgmd_xml->{movie}->{country}->{name};
+ 	$provider_hash->{STUDIOS}= $tgmd_xml->{movie}->{studio}->{name}->[0];
+ 	$provider_hash->{RATING}= $tgmd_xml->{movie}->{rating};
+ 	$provider_hash->{CERTIFICATION}= $tgmd_xml->{movie}->{certification};
+ 	$provider_hash->{RELEASEDATE}= $tgmd_xml->{movie}->{releasedate};
+ 	if (-e "$tempdir/BACKGROUND" ) { $provider_hash->{BACKGROUND}="$tempdir/BACKGROUND"; }
+ 	if (-e "$tempdir/FANART1" ) { $provider_hash->{FANART1}="$tempdir/FANART1"; }
+ 	if (-e "$tempdir/FANART2" ) { $provider_hash->{FANART2}="$tempdir/FANART2"; }
+ 	if (-e "$tempdir/FANART3" ) { $provider_hash->{FANART3}="$tempdir/FANART3"; }
+ 	if (-e "$tempdir/COVER" ) { $provider_hash->{COVER}="$tempdir/COVER"; }
 
 }
 
@@ -1571,13 +1611,15 @@ sub ScanMovieDir {
 				}
 				# get more detailed information using the Movie.getInfo call
 				GetMediaDetails_tmdb($config_options,$tmdb_id,\%provider_hash);
+				GetMediaDetails_imdb($config_options,\%provider_hash);
 				if ($config_options->{COLLECTOR} =~ /moviemeter/i ) {
 					Logger($config_options,"Using MOVIEMETER collector ","DEBUG");
 					GetMediaDetails_moviemeter($config_options,\%provider_hash);
 				}
-				else {
-					Logger($config_options,"Using DEFAULT collector ","DEBUG");
-					GetMediaDetails_imdb($config_options,\%provider_hash);
+				# if a tgmd file exists, use it.
+				if ( -e "$provider_hash{FULLMOVIEPATH}.tgmd" ) {
+					$provider_hash{TGMD_FILE}="$provider_hash{FULLMOVIEPATH}.tgmd";
+					GetMediaDetails_tgmd($config_options,\%provider_hash);
 				}
 
 				# get the media_info hash
@@ -1598,6 +1640,21 @@ sub ScanMovieDir {
 					$thumbnail=grab_thumbnail(\%provider_hash);
 					$thumbnail->Write("$provider_hash{MOVIEFILENAMEWITHOUTEXT}.jpg");
 				}
+
+				# if we used a tgmd, we need to clean up after ourselves.
+				if (defined ($provider_hash{TGMD_FILE} ) ) {
+					Logger($config_options,"Clean Up TGMD Temp directory ".$provider_hash{TGMD_TEMPDIR},"DEBUG");
+					opendir(DIR, "$provider_hash{TGMD_TEMPDIR}") or die "Unable to open TGMD TEMPDIR  $provider_hash{TGMD_TEMPDIR}\n";
+					my @names=grep{ !/^\.+/ } readdir(DIR);
+					closedir(DIR);
+					foreach (@names) {
+        		Logger($config_options,"unlinking $provider_hash{TGMD_TEMPDIR}/$_","DEBUG");
+						unlink "$provider_hash{TGMD_TEMPDIR}/$_";
+					}
+        	Logger($config_options,"removing directory $provider_hash{TGMD_TEMPDIR}","DEBUG");
+					rmdir "$provider_hash{TGMD_TEMPDIR}";
+				}
+
 			}
   	}
 	}

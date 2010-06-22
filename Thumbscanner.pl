@@ -1564,6 +1564,7 @@ Usage: Thumbscanner [options]
   -f  --file              use a specific config file, default is engine.conf
   -o  --overwrite         overwrite existing moviesheets and thumbnails
   -i  --interactive       for instances where multiple hits are returned, prompt the user to pick one
+  -t  --tgmd 				      prefer the use of tgmd file if found
 
 Example:
   Thumbscanner -r -d INFO -o
@@ -1617,7 +1618,8 @@ sub ScanMovieDir {
 					GetMediaDetails_moviemeter($config_options,\%provider_hash);
 				}
 				# if a tgmd file exists, use it.
-				if ( -e "$provider_hash{FULLMOVIEPATH}.tgmd" ) {
+				if ( (-e "$provider_hash{FULLMOVIEPATH}.tgmd") && ($config_options->{PREFERTGMD} ) ) {
+					Logger($config_options,"found TGMD file, using it.","DEBUG");
 					$provider_hash{TGMD_FILE}="$provider_hash{FULLMOVIEPATH}.tgmd";
 					GetMediaDetails_tgmd($config_options,\%provider_hash);
 				}
@@ -1653,6 +1655,8 @@ sub ScanMovieDir {
 					}
         	Logger($config_options,"removing directory $provider_hash{TGMD_TEMPDIR}","DEBUG");
 					rmdir "$provider_hash{TGMD_TEMPDIR}";
+					$provider_hash{TGMD_TEMPDIR}=undef;
+					$provider_hash{TGMD_FILE}=undef;
 				}
 
 			}
@@ -1690,6 +1694,7 @@ my $debug="WARN";
 my $overwrite=0;
 my $conf_file="engine.conf";
 my $recurse=0;
+my $tgmd=0;
 my $interactive=0;
 my $help=0;
 
@@ -1698,6 +1703,7 @@ my $results=GetOptions ("debug=s"				=> \$debug,
 												"file=s"				=> \$conf_file,
 												"help"					=> \$help,
 												"interactive"		=> \$interactive,
+												"tgmd"					=> \$tgmd,
 												"recurse"				=> \$recurse);
 
 Usage if $help;
@@ -1708,6 +1714,7 @@ $config_options{OVERWRITE}=$overwrite;
 $config_options{CONF_FILE}=$conf_file;
 $config_options{RECURSE}=$recurse;
 $config_options{INTERACTIVE}=$interactive;
+$config_options{PREFERTGMD}=$tgmd;
 $config_options{VERSION}="v 0.6";
 
 # read in the options in the config file

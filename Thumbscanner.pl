@@ -1083,15 +1083,11 @@ sub DeTokenize {
 	}
 
 	if ($$string =~ /\%SUBTITLESTEXT\%/ ) {
-		my @subs=@{$provider_hash->{SUBTITLESTEXT}};
-
-		my $max=$template_xml->{Template}->{Settings}->{Subtitles}->{MaximumValues}->{value};
-		my $join_char=$template_xml->{Template}->{Settings}->{Subtitles}->{Separator}->{value};
+		my @subs=@{$provider_hash->{SUBTITLES}};
 
 		# truncate the array if necessary
-		$#subs=($max-1) if $#subs>$max;
-		my $rep=join($join_char,@subs);
-		$$string =~ s/\%SUBTITLESTEXT\%/$rep/;
+		$#subs=4 if $#subs>4;
+		$$string =~ s/\%SUBTITLESTEXT\%/@subs/;
 	}
 
 	if ($$string =~ /\%SUBTITLES\%/ ) {
@@ -1552,7 +1548,6 @@ sub GetMediaInfo {
 	
 		# internal subtitles
 		my @sub_ary=map{$_->{type} =~ /text/i ? $_->{Language} : () } @{$media_info->{Mediainfo}->{File}->{track}};
-		$provider_hash->{SUBTITLESTEXT}=\@sub_ary;
 		$provider_hash->{SUBTITLES}=\@sub_ary;
 		my $counter=1;
 		foreach (@sub_ary) {

@@ -12,6 +12,8 @@ v 0.6
 - Error checking moviedb results
 - added moviemeter.nl as a COLLECTOR at dachouffe's request.
 - added initial support for TGMD files, not fully debugged. -t or --tmgd on the command line to perfer use of tgmd files
+- fixed text alignment issue added middleright and middleleft and autosize check
+- added a few more TEXT tokens
 
 
 v 0.5

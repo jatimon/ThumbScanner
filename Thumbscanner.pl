@@ -93,7 +93,7 @@ sub DropShadow {
 	my $angle;
 
 # get actual color translation
-	$color=GetColor($color);
+	$color=GetColor($config_options,$color);
 
 # figure out the angle and offset
 	if ( ($true_angle >= 270) && ($true_angle <= 360) ) {
@@ -154,7 +154,7 @@ sub Glow {
   my $opacity=shift;
   my $sigma=shift;
 
-  my $color=GetColor($color);
+  my $color=GetColor($config_options,$color);
   my ($width, $height) = $base_image->Get('columns', 'rows');
 
   my $shadow_image=Image::Magick->new(Magick=>'png');
@@ -423,7 +423,7 @@ sub RoundCorners {
 		my $border_image=Image::Magick->new(magick=>'png');
 		$border_image=$base_image->Clone();
 		($width, $height) = $base_image->Get('columns', 'rows');
-		$border_color=GetColor($border_color);
+		$border_color=GetColor($config_options,$border_color);
 		$border_image->Resize(width=>$width+(2*$border_width),height=>$height+(2*$border_width));
 		$border_image->Set(background=>$border_color);
 		$border_image->Shadow(opacity=>100,sigma=>0,X=>0, Y=>0);
@@ -440,6 +440,7 @@ sub GetColor {
 # take the signed int that ImageDraw uses and return a hex.  When converted from signed int to hex
 # ImageDraw uses the following convention  AARRGGBB  Alpha Red Green Blue.  ImageMagick like
 # RRGGBBAA so lets pass back a hash reference.
+	my $config_options=shift;
 	my $ID_color=shift;
 
 	my $hex = sprintf ("%x",$ID_color);
@@ -449,7 +450,9 @@ sub GetColor {
 	my $green= substr($hex,4,2);
 	my $blue= substr($hex,6,2);
 
-	return "#$red$green$blue$alpha\n";
+	my $result = "#$red$green$blue$alpha";
+	Logger($config_options,"GetColor Request orig->$ID_color result->$result","DEBUG");
+	return $result;
 }
 
 sub AddImageElement {
@@ -705,6 +708,7 @@ sub ParseFont {
 
 sub GetGravity {
 # ImageDraw alignment options, The text can be left-aligned, center-aligned, or right-aligned in both vertical and horizontal directions. 
+	my $config_options=shift;
 	my $alignment=shift;
 
 	my %alignment_hash = (
@@ -713,12 +717,15 @@ sub GetGravity {
 			'TopRight'			=>	'NorthEast',
 			'Left'					=>	'West',
 			'Right'					=>	'East',
+			'MiddleLeft'		=>	'West',
+			'MiddleRight'		=>	'East',
 			'BottomLeft'		=>	'SouthWest',
 			'BottomMiddle'	=>	'South',
 			'BottomRight'		=>	'SouthEast',
 			'MiddleCenter'	=>	'Center',
 		);
 
+	Logger($config_options,"Translating Alignment orig->$alignment result->$alignment_hash{$alignment}","DEBUG");
 	return $alignment_hash{$alignment};
 }
 	
@@ -747,9 +754,9 @@ sub AddTextElement {
 	my $composite_y=$token->attr->{Y};
 
 	# create the text element image contents
-	my $forecolor=GetColor($token->attr->{ForeColor});
+	my $forecolor=GetColor($config_options,$token->attr->{ForeColor});
 	my $font_hash=ParseFont($config_options,$token->attr->{Font});
-	my $gravity=GetGravity($token->attr->{TextAlignment} );
+	my $gravity=GetGravity($config_options,$token->attr->{TextAlignment} );
 
 	$string=$token->attr->{Text};
 	if ($string =~ /\%.+\%/) {
@@ -763,6 +770,8 @@ sub AddTextElement {
 		$string=TextWrap($config_options,$string, $token->attr->{Width}, $font_hash->{Family}, $font_hash->{Size})
 	}
 
+	if ($token->attr->{AutoSize} =~ /true/i  ) {$gravity = 'West';}
+
 	my %text_attributes=(
 			text			=> $string,
 			fill			=> $forecolor,
@@ -770,12 +779,13 @@ sub AddTextElement {
 			pointsize	=> $font_hash->{Size},
 			antialias	=> 'true',
 			gravity		=> $gravity,
+			stretch		=> 'Expanded',
 			);
 
 	if ($token->attr->{StrokeWidth} > 0) {
 		$text_attributes{strokewidth} = $token->attr->{StrokeWidth};
-		if (GetColor($token->attr->{StrokeColor}) !~ /000000/ ) {
-			$text_attributes{stroke} = GetColor($token->attr->{StrokeColor});
+		if (GetColor($config_options,$token->attr->{StrokeColor}) !~ /000000/ ) {
+			$text_attributes{stroke} = GetColor($config_options,$token->attr->{StrokeColor});
 		}
 	}
 
@@ -1041,6 +1051,18 @@ sub DeTokenize {
 		}
 		Logger($config_options,"VIDEOFORMAT $provider_hash->{VIDEOFORMAT} resolves to $rep","DEBUG");
 		$$string =~ s/\%VIDEOFORMAT\%/$rep/;
+	}
+
+	if ($$string =~ /\%CONTAINERTEXT\%/ ) {
+		$$string =~ s/\%CONTAINERTEXT\%/$provider_hash->{CONTAINERTEXT}/;
+	}
+
+	if ($$string =~ /\%VIDEOCODECTEXT\%/ ) {
+		$$string =~ s/\%VIDEOCODECTEXT\%/$provider_hash->{VIDEOCODECTEXT}/;
+	}
+
+	if ($$string =~ /\%MEDIAFORMATTEXT\%/ ) {
+		$$string =~ s/\%MEDIAFORMATTEXT\%/$provider_hash->{MEDIAFORMATTEXT}/;
 	}
 
 	if ($$string =~ /\%MEDIAFORMAT\%/ ) {
@@ -1487,9 +1509,13 @@ sub GetMediaInfo {
 
 	my $media_info=$ob->simple();
 
+	my $logger_msg=Dumper $media_info;
+	Logger($config_options,"Media Info XML Object\n$logger_msg","DEBUG");
+
 	if (ref($media_info->{Mediainfo}->{File}->{track}) eq "ARRAY" )  {
 		$provider_hash->{DURATIONTEXT}				= $media_info->{Mediainfo}->{File}->{track}->[1]->{Duration};
 		$provider_hash->{FRAMERATETEXT}				= $media_info->{Mediainfo}->{File}->{track}->[1]->{Frame_rate};
+		$provider_hash->{FRAMERATETEXT}				=~ s/\w*fps//;
 		$provider_hash->{AUDIOCODECTEXT}			= $media_info->{Mediainfo}->{File}->{track}->[2]->{Codec_ID};
 		$provider_hash->{ASPECTRATIOTEXT}			= $media_info->{Mediainfo}->{File}->{track}->[1]->{Display_aspect_ratio};
 		$provider_hash->{VIDEOBITRATETEXT}		= $media_info->{Mediainfo}->{File}->{track}->[1]->{Bit_rate}; 
@@ -1507,12 +1533,17 @@ sub GetMediaInfo {
 		# supported values		Divx, xvid, wmv, avc, mpeg 
 		$provider_hash->{VIDEOFORMAT}					= lc($media_info->{Mediainfo}->{File}->{track}->[1]->{Format});
 		$provider_hash->{VIDEOFORMAT}					=~ s/mpeg-4 visual/divx/i;
+
+		$provider_hash->{VIDEOCODECTEXT}			= $media_info->{Mediainfo}->{File}->{track}->[1]->{Format};
 	
 		# supported values BLURAY, DVD, MKV, mpeg4, Mov, rmvb
+		$provider_hash->{CONTAINERTEXT}					= lc($media_info->{Mediainfo}->{File}->{track}->[0]->{Format});
 		$provider_hash->{MEDIAFORMAT}					= lc($media_info->{Mediainfo}->{File}->{track}->[0]->{Format});
 		$provider_hash->{MEDIAFORMAT}					=~ s/Matroska/mkv/i;
 		$provider_hash->{MEDIAFORMAT}					=~ s/avi/mpeg/i;
 	
+		$provider_hash->{MEDIAFORMATTEXT}			= uc($provider_hash->{MEDIAFORMAT});
+
 		# supported values AAC51, AAC, AAC20, DD51, DD20, DTS51, MP3, FLAC, WMA, VORBIS, DTSHD, DTRUEHD
 		$provider_hash->{SOUNDFORMAT}					= lc($media_info->{Mediainfo}->{File}->{track}->[2]->{Format});
 		$provider_hash->{SOUNDFORMAT}					=~ s/AC-3/AAC Unknown/i;
@@ -1628,8 +1659,8 @@ sub ScanMovieDir {
 				GetMediaInfo($config_options,\%provider_hash);
 
 				# log the provider_hash;
-				my $tmp_string=Dumper(\%provider_hash);
-				Logger ($config_options,$tmp_string,"DEBUG");
+				my $provider_string=Dumper(\%provider_hash);
+				Logger ($config_options,$provider_string,"DEBUG");
 
 				# start the movie sheet generation
 				$moviesheet=generate_moviesheet($config_options, \%provider_hash);

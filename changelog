@@ -14,6 +14,10 @@ v 0.6
 - added initial support for TGMD files, not fully debugged. -t or --tmgd on the command line to perfer use of tgmd files
 - fixed text alignment issue added middleright and middleleft and autosize check
 - added a few more TEXT tokens
+- added check for dts audioformat
+- fixed bug in AdjustOpacity
+- fixed bug in RoundCorners
+- tgmd files get parsed before going to the Internet.
 
 
 v 0.5

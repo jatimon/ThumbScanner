@@ -335,6 +335,44 @@ sub Skew{
 	return $orig_image;
 }
 
+sub AdjustOpacity {
+# set the transparency of an image
+	my $config_options=shift;
+	my $base_image=shift;
+	my $opacity_percent=shift;
+
+	my $opacity=Image::Magick->new(Magick=>'png');
+	my ($width, $height) = $base_image->Get('columns', 'rows');
+
+	$opacity=$base_image->Clone();
+
+	$base_image->Evaluate(value=>$opacity_percent,operator=>'Multiply',channel=>'Alpha');
+	$base_image->Set(alpha=>'extract');
+	$base_image->Evaluate(value=>$opacity_percent,operator=>'Multiply',channel=>'All');
+	$base_image->Set(alpha=>'copy');
+	$opacity->Composite(image=>$base_image,compose=>"copyopacity");
+
+	return $opacity;
+
+
+
+
+
+#	my $color=int(256*$opacity_percent);
+#	$base_image->Display(":0.0");
+#	
+#	$opacity->Set(size=>"${width}x${height}");
+#	$opacity->Read("XC: rgb($color,$color,$color)");
+#	
+#	$opacity->Set(alpha=>'off');
+#	$base_image->Set(alpha=>'off');
+#	
+#	$base_image->Composite(image=>$opacity,compose=>"copyopacity");
+#	$base_image->Display(":0.0");
+#return $base_image;
+}
+
+
 sub PerspectiveView {
 # create a perspectiveView of the passed in image
 # initially this looks to be a trapezoid distort
@@ -371,19 +409,20 @@ sub RoundCorners {
 	$base_image=$orig_image->Clone();
 	$white->Set(size=>sprintf("%dx%d",$width,$height) );
 	$white->Read("xc:white");
+	$base_image->Set(alpha=>'off');
 	$base_image->Composite(image=>$white, compose=>'SrcIn');
-	$base_image->Set(alpha=>'Deactivate');
 
 	# make a TopLeft Corner as a base and we will flip and flop as needed.
 	my $points=sprintf("%d,%d %d,0",$roundness,$roundness,$roundness);
 	$TopLeft->Set(size=>sprintf("%dx%d",$roundness,$roundness));
 	$TopLeft->Read('xc:none');
 	$TopLeft->Draw(primitive=>'circle', fill=>'white', points=>$points);
+	$TopLeft->Set(alpha=>'off');
 
 	if ( ($corners =~ /topleft/i ) || ( $corners =~ /All/i ) ) {
 		# make a TopLeft overlay
 		Logger($config_options,"TopLeft","DEBUG");
-		$base_image->Composite(compose=>'dst-atop',image=>$TopLeft,gravity=>'NorthWest');
+		$base_image->Composite(compose=>'src-atop',image=>$TopLeft,gravity=>'NorthWest');
 	}
 	if ( ( $corners =~ /topright/i ) || ( $corners =~ /All/i ) ) {
 		# make a TopRight overlay
@@ -391,7 +430,7 @@ sub RoundCorners {
 		$TopRight=$TopLeft->Clone();
 		$TopRight->Flop();
 		Logger($config_options,"TopRight","DEBUG");
-		$base_image->Composite(compose=>'dst-atop',image=>$TopRight,gravity=>'NorthEast');
+		$base_image->Composite(compose=>'src-atop',image=>$TopRight,gravity=>'NorthEast');
 		undef $TopRight;
   }
   if( ( $corners =~ /bottomright/i ) || ( $corners =~ /All/i ) ) {
@@ -401,7 +440,7 @@ sub RoundCorners {
 		$BottomRight->Flop();
 		$BottomRight->Flip();
 		Logger($config_options,"BottomRight","DEBUG");
-		$base_image->Composite(compose=>'dst-atop',image=>$BottomRight,gravity=>'SouthEast');
+		$base_image->Composite(compose=>'src-atop',image=>$BottomRight,gravity=>'SouthEast');
 		undef $BottomRight;
   }
   if( ( $corners =~ /bottomleft/i ) || ( $corners =~ /All/i ) ) {
@@ -410,12 +449,15 @@ sub RoundCorners {
 		$BottomLeft=$TopLeft->Clone();
 		$BottomLeft->Flip();
 		Logger($config_options,"BottomLeft","DEBUG");
-		$base_image->Composite(compose=>'dst-atop',image=>$BottomLeft,gravity=>'SouthWest');
+		$base_image->Composite(compose=>'src-atop',image=>$BottomLeft,gravity=>'SouthWest');
 		undef $BottomLeft;
   }
 
-	$base_image->Set(alpha=>'Activate');
-	$base_image->Composite(image=>$orig_image, compose=>'src-in');
+	$base_image->Set(alpha=>'off');
+	$white->Composite(image=>$base_image, compose=>'CopyOpacity');
+	$white->Composite(image=>$orig_image, compose=>'in');
+
+	$base_image=$white->Clone();
 
 	if ( $border_width > 0 ) { 
 	# this is what I am thinking here.  clone the image. resize it by borderwidth fill it with the bordercolor
@@ -583,8 +625,7 @@ sub AddImageElement {
 					elsif ( ($token->tag =~ /AdjustOpacity/i) && ($token->is_start_tag)  ) {
 						my $opacity_percent=($token->attr->{Opacity}/100);
 						Logger($config_options,"Adjusting Opacity $sourceData by $opacity_percent","DEBUG");
-						# in ImageDraw, opacity ranges from 0 (fully transparent) to 100 (fully Opaque)
-						$temp->Evaluate(value=>$opacity_percent, operator=>'Multiply', channel=>'All');
+						$temp=AdjustOpacity($config_options,$temp,$opacity_percent);
 					}		
 					elsif ( ($token->tag =~ /RoundCorners/i) && ($token->is_start_tag)  ) {
 						Logger($config_options,"Rounding Corners $sourceData","DEBUG");
@@ -655,7 +696,9 @@ sub AddImageElement {
 			} # end Action If
 		} # end While
 	
-		$base_image->Composite(image=>$temp, compose=>'src-atop', geometry=>$geometry, x=>$composite_x, y=>$composite_y);
+#$base_image->Composite(image=>$temp, compose=>'src-atop', geometry=>$geometry, x=>$composite_x, y=>$composite_y);
+		$temp->Set(alpha=>'on');
+		$base_image->Composite(image=>$temp, compose=>'src-over', geometry=>$geometry, x=>$composite_x, y=>$composite_y);
 		undef $temp;
 }
 
@@ -1282,23 +1325,32 @@ sub Interactive {
 sub GetTmdbID {
 # passed in the file name, clean it and return the tmdb_id
 	my $config_options=shift;
-	my $file_name = shift;
+	my $provider_hash = shift;
 	my $tmdb_id;
 	
-	if ($file_name =~ /tmdb_id=(.*)\..*$/) {
+	if ($provider_hash->{MOVIEFILENAME} =~ /tmdb_id=(.*)\..*$/) {
 		return ($1);
 	}
 
 	# the file name does not contain the tmdb_id.  so let's query tmdb's api and get the filename
 	# N.B. here would be a possible injection point to allow the user to select a specific movie should
 	# the results from tmdb's api have multiple hits.
-	my $movie_name=clean_name($file_name);
+	my $movie_name=clean_name($provider_hash->{MOVIEFILENAME});
 	my $ua = LWP::UserAgent->new;
 	$ua->timeout(10);
 	$ua->env_proxy;
 
-	Logger($config_options,"http://api.themoviedb.org/2.1/Movie.search/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$movie_name","DEBUG");
-	my $response = $ua->get("http://api.themoviedb.org/2.1/Movie.search/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$movie_name");
+	my $url;
+	
+	if (defined $provider_hash->{IMDB_ID} ) {
+		$url="http://api.themoviedb.org/2.1/Movie.imdbLookup/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/".$provider_hash->{IMDB_ID};
+	}
+	else {
+		$url="http://api.themoviedb.org/2.1/Movie.search/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$movie_name";
+	}
+
+	Logger($config_options,$url,"DEBUG");
+	my $response = $ua->get($url);
 	my $xml_ob = new XML::Bare(text => $response->decoded_content );
 	my $xml_root=$xml_ob->simple();
 
@@ -1306,7 +1358,7 @@ sub GetTmdbID {
 		Logger($config_options,"Multiple movie entries found for $movie_name\n\tthis can be fixed by adding the string tmdb_id=<the ID> to the filename\n\ti.e. 21.avi becomes 21tmdb=8065.avi to ensure we get the Kevin Spacey one\n\tOr by running the script with the -i option for interactive.","WARN");
 		# go interactive if the flag is set
 		if ($config_options->{INTERACTIVE} ) {
-			$tmdb_id=Interactive($config_options, $xml_root, $file_name);
+			$tmdb_id=Interactive($config_options, $xml_root, $provider_hash->{MOVIEFILENAME});
 		}
 		else {
 			$tmdb_id=$xml_root->{OpenSearchDescription}->{movies}->{movie}->[0]->{id};
@@ -1413,19 +1465,19 @@ sub GetMediaDetails_imdb {
 	
 	# provider_hash hash
 	
-	$provider_hash->{TITLE}= $movie->title();
-	$provider_hash->{ORIGINALTITLE}= '';
-	$provider_hash->{PLOT}= $movie->full_plot();
-	$provider_hash->{YEAR}= $movie->year();
-	$provider_hash->{ACTORS}= \@cast;
-	$provider_hash->{GENRES}= $movie->genres();
-	$provider_hash->{DIRECTORS}= \@directors;
-	$provider_hash->{MPAA}= $movie->mpaa_info();
-	$provider_hash->{COUNTRIES}= $countries[0];
-	$provider_hash->{STUDIOS}= $movie->company();
-	$provider_hash->{RATING}= $movie->rating();
-	$provider_hash->{CERTIFICATION}= $cert[0]->{USA};
-	$provider_hash->{RELEASEDATE}= $release{Canada};
+	$provider_hash->{TITLE}= $movie->title() unless defined $provider_hash->{TITLE};
+	$provider_hash->{ORIGINALTITLE}= '' unless defined $provider_hash->{ORIGINALTITLE};
+	$provider_hash->{PLOT}= $movie->full_plot() unless defined $provider_hash->{PLOT};
+	$provider_hash->{YEAR}= $movie->year() unless defined $provider_hash->{YEAR};
+	$provider_hash->{ACTORS}= \@cast unless defined $provider_hash->{ACTORS};
+	$provider_hash->{GENRES}= $movie->genres() unless defined $provider_hash->{GENRES};
+	$provider_hash->{DIRECTORS}= \@directors unless defined $provider_hash->{DIRECTORS};
+	$provider_hash->{MPAA}= $movie->mpaa_info() unless defined $provider_hash->{MPAA};
+	$provider_hash->{COUNTRIES}= $countries[0] unless defined $provider_hash->{COUNTRIES};
+	$provider_hash->{STUDIOS}= $movie->company() unless defined $provider_hash->{STUDIOS};
+	$provider_hash->{RATING}= $movie->rating() unless defined $provider_hash->{RATING};
+	$provider_hash->{CERTIFICATION}= $cert[0]->{USA} unless defined $provider_hash->{CERTIFICATION};
+	$provider_hash->{RELEASEDATE}= $release{Canada} unless defined $provider_hash->{RELEASEDATE};
 
 }
 
@@ -1447,29 +1499,29 @@ sub GetMediaDetails_tmdb {
 	my $movie_xml=$xml_ob->parse();
 
   my @backdrops;
-   # grab the backdrop image from themoviedb
-   foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
-     push ( @backdrops, $_->{url}->{value}) if ( ($_->{size}->{value} =~ /original/i) && ($_->{type}->{value} =~ /backdrop/i) );
-   }
-   if (scalar (@backdrops) > 1) {
-     # pick one randomly
-     # $image_url=$backdrops[ rand @backdrops ];
-     $provider_hash->{BACKGROUND}=$backdrops[0];
-   }
-   else {
-     $provider_hash->{BACKGROUND}=$backdrops[0];
+  # grab the backdrop image from themoviedb
+  foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
+   	push ( @backdrops, $_->{url}->{value}) if ( ($_->{size}->{value} =~ /original/i) && ($_->{type}->{value} =~ /backdrop/i) );
   }
+  if (scalar (@backdrops) > 1) {
+   	# pick one randomly
+   	# $image_url=$backdrops[ rand @backdrops ];
+   	$provider_hash->{BACKGROUND}=$backdrops[0] unless defined $provider_hash->{BACKGROUND};
+  }
+  else {
+   	$provider_hash->{BACKGROUND}=$backdrops[0] unless defined $provider_hash->{BACKGROUND};
+	}
 
-	$provider_hash->{RELEASEDATE} = $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{released}->{value};
+	$provider_hash->{RELEASEDATE} = $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{released}->{value} unless defined $provider_hash->{RELEASEDATE};
 
   my @fanart;
   # grab the fanart image from themoviedb
    foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
      push ( @fanart, $_->{url}->{value}) if ( ($_->{size}->{value} =~ /original/i) && ($_->{type}->{value} =~ /backdrop/i) );
    }
-	$provider_hash->{FANART1}=$fanart[0];
-	$provider_hash->{FANART2}=$fanart[1];
-	$provider_hash->{FANART3}=$fanart[2];
+	$provider_hash->{FANART1}=$fanart[0] unless defined $provider_hash->{FANART1};
+	$provider_hash->{FANART2}=$fanart[1] unless defined $provider_hash->{FANART2};
+	$provider_hash->{FANART3}=$fanart[2] unless defined $provider_hash->{FANART3};
 
   my @covers;
   # grab the cover image from themoviedb
@@ -1479,10 +1531,10 @@ sub GetMediaDetails_tmdb {
   if (scalar (@covers) > 1) {
     # pick one randomly
     # $image_url=$covers[ rand @covers ];
-    $provider_hash->{COVER}=$covers[0];
+    $provider_hash->{COVER}=$covers[0] unless defined $provider_hash->{COVER};
   }
   else {
-    $provider_hash->{COVER}=$covers[0];
+    $provider_hash->{COVER}=$covers[0] unless defined $provider_hash->{COVER};
   }
 
 	$provider_hash->{IMDB_ID}=$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{imdb_id}->{value};
@@ -1544,6 +1596,7 @@ sub GetMediaInfo {
 		$provider_hash->{SOUNDFORMAT}					= lc($media_info->{Mediainfo}->{File}->{track}->[2]->{Format});
 		$provider_hash->{SOUNDFORMAT}					=~ s/AC-3/AAC Unknown/i;
 		$provider_hash->{SOUNDFORMAT}					=~ s/.*mpeg.*/All MPEG/i;
+		$provider_hash->{SOUNDFORMAT}					=~ s/.*dts.*/dts/i;
 		# more search/replace as found.
 	
 		# internal subtitles
@@ -1631,23 +1684,25 @@ sub ScanMovieDir {
 			
 			my $clean_name=clean_name($provider_hash{MOVIEFILENAME});
 			if ( ($config_options->{OVERWRITE}) || !( -e "$provider_hash{MOVIEFILENAMEWITHOUTEXT}.jpg"))  {
-				my $tmdb_id=GetTmdbID($config_options,$provider_hash{MOVIEFILENAME});
+				# if a tgmd file exists, use it.
+				if ( (-e "$provider_hash{FULLMOVIEPATH}.tgmd") && ($config_options->{PREFERTGMD} ) ) {
+					Logger($config_options,"found TGMD file, using it.","DEBUG");
+					$provider_hash{TGMD_FILE}="$provider_hash{FULLMOVIEPATH}.tgmd";
+					GetMediaDetails_tgmd($config_options,\%provider_hash);
+				}
+
+				my $tmdb_id=GetTmdbID($config_options,\%provider_hash);
 				unless (defined($tmdb_id)) {
 					Logger($config_options,"unable to find movie data for $provider_hash{MOVIEFILENAME}","CRIT");
 					next;
 				}
+
 				# get more detailed information using the Movie.getInfo call
 				GetMediaDetails_tmdb($config_options,$tmdb_id,\%provider_hash);
 				GetMediaDetails_imdb($config_options,\%provider_hash);
 				if ($config_options->{COLLECTOR} =~ /moviemeter/i ) {
 					Logger($config_options,"Using MOVIEMETER collector ","DEBUG");
 					GetMediaDetails_moviemeter($config_options,\%provider_hash);
-				}
-				# if a tgmd file exists, use it.
-				if ( (-e "$provider_hash{FULLMOVIEPATH}.tgmd") && ($config_options->{PREFERTGMD} ) ) {
-					Logger($config_options,"found TGMD file, using it.","DEBUG");
-					$provider_hash{TGMD_FILE}="$provider_hash{FULLMOVIEPATH}.tgmd";
-					GetMediaDetails_tgmd($config_options,\%provider_hash);
 				}
 
 				# get the media_info hash

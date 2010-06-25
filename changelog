@@ -18,6 +18,7 @@ v 0.6
 - fixed bug in AdjustOpacity
 - fixed bug in RoundCorners
 - tgmd files get parsed before going to the Internet.
+- fixed bug in parsing tgmd file.
 
 
 v 0.5

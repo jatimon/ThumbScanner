@@ -6,15 +6,24 @@ What is it?
 ===========
 
 I wrote this script to automate the generation of moviesheets and thumbnails.  It can be
-put into cron and run on a daily basis.  It will find movies that do not have thumbnails 
-and pull down a thumbnail image and basic backdrop image from www.themoviedb.org using
-their supplied api.  It will further manipulate the backdrop image to ensure that it is
-the correct size and it will overlay data that it gets from themoviedb website on the image.
+put into cron and run on a daily basis.  
+
+It is designed to generate moviesheets and thumbnails according the Thumbgen and TVixe Template Files.
+
+Currently supported Movie Collectors are the default which is themoviedb.org, as well as tgmd file, moviemeter.nl and IMDB.  IMDB is used to augment any required attributes that are not provided by the above Collectors.  The Collector interface has been made pretty generic, so adding other movie Collectors sites should be pretty straightforward.
+
 
 Installation
 ============
 
 See INSTALLATION file.
+
+
+License
+============
+
+See LICENSE file.
+
 
 Usage
 =====
@@ -26,19 +35,23 @@ Usage: Thumbscanner [options]
   -f  --file              use a specific config file, default is engine.conf
   -o  --overwrite         overwrite existing moviesheets and thumbnails
 	-i	--interactive				prompt user to identify movie when there are multiple hits
+  -t  --tgmd 				      prefer the use of tgmd file if found
 
 Example:
   Thumbscanner -r -d INFO -o
 
   This will recurse subdirectories and overwrite existing moviesheets and thumbnails as well as printing debugging information at level INFO.
 
+
 Configuration
 =============
 The file engine.conf is the default configuration file.  It contains directives used for generating your moviesheets.  These are the following
 
-TEMPLATE -- This is the path to the Template.xml file to use.  It can be either relative or fully qualified.  If you use a relative path, you need to ensure that you always run Thumbscanner from the correct directory.
-PROVIDER -- This is the internet provider that will be used to get fanart and Movie information for your Movies.  Currently the only coded provided is themoviedb
-MOVIEDIR -- This is the root of your movie directory.  
+TEMPLATE          -- This is the path to the Template.xml file to use.  It can be either relative or fully qualified.  If you use a relative path, you need to ensure that you always run Thumbscanner from the correct directory.
+COLLECTOR        -- This is the internet provider that will be used to get fanart and Movie information for your Movies.  Valid values are, DEFAULT and moviemeter.  More can be added as needed.
+MOVIEPARENTFOLDER -- This is the root of your movie directory.  
+LOGFILE           -- this is where Thumbscanner logs everything it does, default is /var/tmp/thumbscanner.log
+
 
 Requirements
 ============

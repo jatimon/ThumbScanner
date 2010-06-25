@@ -892,7 +892,7 @@ sub TextWrap {
 
 	Logger($config_options,"Text Wrap before ->".$string,"DEBUG");
 
-	$string =~ /^(\s+)\w/;
+	$string =~ /^(\s+)\S/;
 	my $indent=$1;
 	my @ary=split(/\s/,$string);
 	my $first=1;
@@ -1437,7 +1437,7 @@ sub GetMediaDetails_tgmd {
  	$provider_hash->{GENRES}= $tgmd_xml->{movie}->{genre}->{name};
  	$provider_hash->{DIRECTORS}= \@directors;
  	$provider_hash->{COUNTRY}= $tgmd_xml->{movie}->{country}->{name};
- 	$provider_hash->{STUDIOS}= $tgmd_xml->{movie}->{studio}->{name}->[0];
+ 	$provider_hash->{STUDIOS}= (ref $tgmd_xml->{movie}->{studio}->{name} =~ /array/i) ? $tgmd_xml->{movie}->{studio}->{name}->[0]: $tgmd_xml->{movie}->{studio}->{name};
  	$provider_hash->{RATING}= $tgmd_xml->{movie}->{rating};
  	$provider_hash->{CERTIFICATION}= $tgmd_xml->{movie}->{certification};
  	$provider_hash->{RELEASEDATE}= $tgmd_xml->{movie}->{releasedate};
@@ -1478,6 +1478,7 @@ sub GetMediaDetails_imdb {
 	$provider_hash->{RATING}= $movie->rating() unless defined $provider_hash->{RATING};
 	$provider_hash->{CERTIFICATION}= $cert[0]->{USA} unless defined $provider_hash->{CERTIFICATION};
 	$provider_hash->{RELEASEDATE}= $release{Canada} unless defined $provider_hash->{RELEASEDATE};
+
 
 }
 
@@ -1686,7 +1687,7 @@ sub ScanMovieDir {
 			if ( ($config_options->{OVERWRITE}) || !( -e "$provider_hash{MOVIEFILENAMEWITHOUTEXT}.jpg"))  {
 				# if a tgmd file exists, use it.
 				if ( (-e "$provider_hash{FULLMOVIEPATH}.tgmd") && ($config_options->{PREFERTGMD} ) ) {
-					Logger($config_options,"found TGMD file, using it.","DEBUG");
+					Logger($config_options,"found TGMD file, using it.","INFO");
 					$provider_hash{TGMD_FILE}="$provider_hash{FULLMOVIEPATH}.tgmd";
 					GetMediaDetails_tgmd($config_options,\%provider_hash);
 				}

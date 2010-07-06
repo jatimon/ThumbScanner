@@ -1644,7 +1644,7 @@ Usage: Thumbscanner [options]
   -f  --file              use a specific config file, default is engine.conf
   -o  --overwrite         overwrite existing moviesheets and thumbnails
   -i  --interactive       for instances where multiple hits are returned, prompt the user to pick one
-  -t  --tgmd 				      prefer the use of tgmd file if found
+  -t  --tgmd              prefer the use of tgmd file if found
 
 Example:
   Thumbscanner -r -d INFO -o
@@ -1797,7 +1797,7 @@ $config_options{CONF_FILE}=$conf_file;
 $config_options{RECURSE}=$recurse;
 $config_options{INTERACTIVE}=$interactive;
 $config_options{PREFERTGMD}=$tgmd;
-$config_options{VERSION}="v 0.6";
+$config_options{VERSION}="v 0.6.1";
 
 # read in the options in the config file
 open (FD, $config_options{CONF_FILE}) or die "Unable to open config file $config_options{CONF_FILE}\n";

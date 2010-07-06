@@ -34,8 +34,8 @@ Usage: Thumbscanner [options]
   -d  --debug             print debugging information values < CRIT | ERROR | WARN | INFO | DEBUG >
   -f  --file              use a specific config file, default is engine.conf
   -o  --overwrite         overwrite existing moviesheets and thumbnails
-	-i	--interactive				prompt user to identify movie when there are multiple hits
-  -t  --tgmd 				      prefer the use of tgmd file if found
+  -i  --interactive       prompt user to identify movie when there are multiple hits
+  -t  --tgmd              prefer the use of tgmd file if found
 
 Example:
   Thumbscanner -r -d INFO -o
@@ -48,7 +48,7 @@ Configuration
 The file engine.conf is the default configuration file.  It contains directives used for generating your moviesheets.  These are the following
 
 TEMPLATE          -- This is the path to the Template.xml file to use.  It can be either relative or fully qualified.  If you use a relative path, you need to ensure that you always run Thumbscanner from the correct directory.
-COLLECTOR        -- This is the internet provider that will be used to get fanart and Movie information for your Movies.  Valid values are, DEFAULT and moviemeter.  More can be added as needed.
+COLLECTOR         -- This is the internet provider that will be used to get fanart and Movie information for your Movies.  Valid values are, DEFAULT and moviemeter.  More can be added as needed.
 MOVIEPARENTFOLDER -- This is the root of your movie directory.  
 LOGFILE           -- this is where Thumbscanner logs everything it does, default is /var/tmp/thumbscanner.log
 

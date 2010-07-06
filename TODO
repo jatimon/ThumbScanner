@@ -18,6 +18,7 @@
 			Extra Sheet - Used in the browser screen of the Playon!HD
 - there is a bug that eroneously ouputs crit errors for country codes (subtitles) when the string is empty
 			CRIT:	I could not find
+- generate rss and nfo files.
 
 -----
 NOTES

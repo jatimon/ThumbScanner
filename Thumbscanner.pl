@@ -1803,7 +1803,7 @@ $config_options{CONF_FILE}=$conf_file;
 $config_options{RECURSE}=$recurse;
 $config_options{INTERACTIVE}=$interactive;
 $config_options{PREFERTGMD}=$tgmd;
-$config_options{VERSION}="v 0.6.1";
+$config_options{VERSION}="v 0.6.2010.07.08";
 
 # read in the options in the config file
 open (FD, $config_options{CONF_FILE}) or die "Unable to open config file $config_options{CONF_FILE}\n";

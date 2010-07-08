@@ -179,19 +179,21 @@ sub GlassTable {
 	my $opacity=shift;
 	my $percent=shift;
 
+	Logger($config_options,sprintf("Glass table parameters; X=%d Y=%d opacity=%d percent=%d",$x_offset,$y_offset,$opacity,$percent),"DEBUG");
+
 	my ($width, $height) = $base_image->Get('columns', 'rows');
 	my $first_image=Image::Magick->new();
 	my $new_height=int($height*$percent/100);
 
 	my $temp_image=Image::Magick->new();
 	$temp_image=$base_image->Clone();
-	$temp_image->Crop(sprintf("%dx%d+0+0", $width, $new_height) );
 	$temp_image->Flip();
+	$temp_image->Crop(sprintf("%dx%d+0+0", $width, $new_height) );
 
 	my $temp_image2=Image::Magick->new();
 	$temp_image2=$base_image->Clone();
-	$temp_image2->Crop(sprintf("%dx%d+0+0", $width, $new_height) );
 	$temp_image2->Flip();
+	$temp_image2->Crop(sprintf("%dx%d+0+0", $width, $new_height) );
 	$temp_image2->Set(alpha=>'Extract');
 
 	my $gradient=Image::Magick->new();
@@ -205,7 +207,8 @@ sub GlassTable {
 	$temp_image->Composite(image=>$temp_image2, compose=>'CopyOpacity');
 	$temp_image->Set(alpha=>'on');
 	
-	$opacity=1-($opacity/100);
+#$opacity=1-($opacity/100);
+	$opacity=($opacity/100);
 	$temp_image->Evaluate(value=>$opacity, operator=>'Multiply', channel=>'Alpha');
 
 	my $clipboard=Image::Magick->new();
@@ -355,21 +358,6 @@ sub AdjustOpacity {
 	return $opacity;
 
 
-
-
-
-#	my $color=int(256*$opacity_percent);
-#	$base_image->Display(":0.0");
-#	
-#	$opacity->Set(size=>"${width}x${height}");
-#	$opacity->Read("XC: rgb($color,$color,$color)");
-#	
-#	$opacity->Set(alpha=>'off');
-#	$base_image->Set(alpha=>'off');
-#	
-#	$base_image->Composite(image=>$opacity,compose=>"copyopacity");
-#	$base_image->Display(":0.0");
-#return $base_image;
 }
 
 
@@ -718,6 +706,8 @@ sub ParseFont {
 	my $config_options=shift;
 	my $font=shift;
 
+	Logger($config_options,"Font Request -> $font","DEBUG");
+
 	# is this a basic font line or one with bold/italic/underline/strikeout
 	my @font_ary=split(/,/,$font);
 
@@ -734,8 +724,15 @@ sub ParseFont {
 	my $temp=Image::Magick->new();
 	my @fonts=$temp->QueryFont($font_hash{Family});
 
-	Logger($config_options,"this font is not found ---- $font_hash{Family}","CRIT") unless defined ($fonts[0]);
+	Logger($config_options,"This font is not found ---- $font_hash{Family}","CRIT") unless defined ($fonts[0]);
 	undef $temp;
+
+	unless (-e $fonts[10] ) {
+		Logger($config_options,"This glyph file is not found $fonts[10].  Please ensure your fonts are set up correctly.","CRIT");
+	}
+
+	my $font_string=Dumper(\@fonts);
+	Logger($config_options,"Results of QueryFont @fonts","DEBUG");
 
 	if (scalar(@font_ary) > 5) {
 		# build a string of which ever text options are specified
@@ -745,6 +742,9 @@ sub ParseFont {
 		$font_hash{Options}=join(',',@options);
 		$font_hash{Family}.="-Bold" if $font_ary[2] =~ /True/i;
 	}
+
+	my $tmp_string=Dumper(\%font_hash);
+	Logger($config_options,$tmp_string,"DEBUG");
 
 	return \%font_hash;
 }
@@ -989,7 +989,7 @@ sub DeTokenize {
 	}
 
 	if ($$string =~ /\%SUBTITLES(\d)\%/ ) {
-		my $rep= $provider_hash->{"SUBTITLES$1"},"\n";	
+		my $rep= ( $provider_hash->{"SUBTITLES$1"} ne "" ? $provider_hash->{"SUBTITLES$1"} : "NONE");	
 		$$string =~ s/\%SUBTITLES$1\%/$rep/;
 	}
 
@@ -1437,7 +1437,7 @@ sub GetMediaDetails_tgmd {
  	$provider_hash->{GENRES}= $tgmd_xml->{movie}->{genre}->{name};
  	$provider_hash->{DIRECTORS}= \@directors;
  	$provider_hash->{COUNTRY}= $tgmd_xml->{movie}->{country}->{name};
- 	$provider_hash->{STUDIOS}= (ref $tgmd_xml->{movie}->{studio}->{name} =~ /array/i) ? $tgmd_xml->{movie}->{studio}->{name}->[0]: $tgmd_xml->{movie}->{studio}->{name};
+ 	$provider_hash->{STUDIOS}= ref ($tgmd_xml->{movie}->{studio}->{name}) =~ /array/i ? $tgmd_xml->{movie}->{studio}->{name}->[0] : $tgmd_xml->{movie}->{studio}->{name};
  	$provider_hash->{RATING}= $tgmd_xml->{movie}->{rating};
  	$provider_hash->{CERTIFICATION}= $tgmd_xml->{movie}->{certification};
  	$provider_hash->{RELEASEDATE}= $tgmd_xml->{movie}->{releasedate};
@@ -1446,6 +1446,10 @@ sub GetMediaDetails_tgmd {
  	if (-e "$tempdir/FANART2" ) { $provider_hash->{FANART2}="$tempdir/FANART2"; }
  	if (-e "$tempdir/FANART3" ) { $provider_hash->{FANART3}="$tempdir/FANART3"; }
  	if (-e "$tempdir/COVER" ) { $provider_hash->{COVER}="$tempdir/COVER"; }
+
+	my $tgmd_string=Dumper($tgmd_xml);
+	Logger($config_options,"TGMD Data","DEBUG");
+	Logger($config_options,$tgmd_string,"DEBUG");
 
 }
 
@@ -1604,6 +1608,8 @@ sub GetMediaInfo {
 		my @sub_ary=map{$_->{type} =~ /text/i ? $_->{Language} : () } @{$media_info->{Mediainfo}->{File}->{track}};
 		$provider_hash->{SUBTITLES}=\@sub_ary;
 		my $counter=1;
+		Logger($config_options,sprintf("Found %d Subtitles",$#sub_ary),"DEBUG");
+
 		foreach (@sub_ary) {
 			$provider_hash->{"SUBTITLES$counter"}=lc($_);
 			$counter++;

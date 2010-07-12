@@ -181,40 +181,80 @@ sub GlassTable {
 
 	Logger($config_options,sprintf("Glass table parameters; X=%d Y=%d opacity=%d percent=%d",$x_offset,$y_offset,$opacity,$percent),"DEBUG");
 
-	my ($width, $height) = $base_image->Get('columns', 'rows');
-	my $first_image=Image::Magick->new();
-	my $new_height=int($height*$percent/100);
+			my ($width, $height) = $base_image->Get('columns', 'rows');
+			my $first_image=Image::Magick->new();
+			my $new_height=int($height*$percent/100);
+			
+			my $temp_image=Image::Magick->new();
+			$temp_image=$base_image->Clone();
+			$temp_image->Flip();
+			$temp_image->Crop(sprintf("%dx%d+0+0", $width, $new_height) );
+			
+			my $temp_image2=Image::Magick->new();
+			$temp_image2=$base_image->Clone();
+			$temp_image2->Flip();
+			$temp_image2->Crop(sprintf("%dx%d+0+0", $width, $new_height) );
+			$temp_image2->Set(alpha=>'Extract');
+			
+			my $gradient=Image::Magick->new();
+			$gradient->Set(size=>sprintf("%dx%d", $width, $new_height) );
+			$gradient->Read("gradient:grey-black");
+			
+			$temp_image2->Composite(image=>$gradient, compose=>'Multiply');
+			$temp_image2->Set(alpha=>'off');
+			$temp_image->Set(alpha=>'off');
+			
+			$temp_image->Composite(image=>$temp_image2, compose=>'CopyOpacity');
+			$temp_image->Set(alpha=>'on');
+			
+			$opacity=($opacity/100);
+			$temp_image->Evaluate(value=>$opacity, operator=>'Multiply', channel=>'Alpha');
+			
+			my $clipboard=Image::Magick->new();
+			push(@$clipboard, $base_image);
+			push(@$clipboard, $temp_image);
+			$base_image=$clipboard->Append();
 
-	my $temp_image=Image::Magick->new();
-	$temp_image=$base_image->Clone();
-	$temp_image->Flip();
-	$temp_image->Crop(sprintf("%dx%d+0+0", $width, $new_height) );
+# I have reworked the Glass Table to identify source images that already have transparency and treat them diferently
 
-	my $temp_image2=Image::Magick->new();
-	$temp_image2=$base_image->Clone();
-	$temp_image2->Flip();
-	$temp_image2->Crop(sprintf("%dx%d+0+0", $width, $new_height) );
-	$temp_image2->Set(alpha=>'Extract');
-
-	my $gradient=Image::Magick->new();
-	$gradient->Set(size=>sprintf("%dx%d", $width, $new_height) );
-	$gradient->Read("gradient:grey-black");
-
-	$temp_image2->Composite(image=>$gradient, compose=>'Multiply');
-	$temp_image2->Set(alpha=>'off');
-	$temp_image->Set(alpha=>'off');
-
-	$temp_image->Composite(image=>$temp_image2, compose=>'CopyOpacity');
-	$temp_image->Set(alpha=>'on');
-	
-#$opacity=1-($opacity/100);
-	$opacity=($opacity/100);
-	$temp_image->Evaluate(value=>$opacity, operator=>'Multiply', channel=>'Alpha');
-
-	my $clipboard=Image::Magick->new();
-	push(@$clipboard, $base_image);
-	push(@$clipboard, $temp_image);
-	$base_image=$clipboard->Append();
+	#			my ($width, $height) = $base_image->Get('columns', 'rows');
+	#			my $first_image=Image::Magick->new();
+	#			my $new_height=int($height*$percent/100);
+	#			
+	#			my $temp_image=Image::Magick->new();
+	#			$temp_image=$base_image->Clone();
+	#			$temp_image->Flip();
+	#			$temp_image->Crop(sprintf("%dx%d+0+0", $width, $new_height) );
+	#			
+	#			my $gradient=Image::Magick->new();
+	#			$gradient->Set(size=>sprintf("%dx%d", $width, $new_height) );
+	#			$gradient->Read("gradient:white-black");
+	#			
+	#			if ($base_image->Get('matte')) {
+  	#			# this one has a transparent channel
+		#			Logger($config_options,"Glass Tabling Transparent Image","DEBUG");
+  	#			$gradient->Composite(image=>$temp_image, compose=>'dst-in');
+  	#			$gradient->Set(alpha=>'extract');
+  	#			$temp_image->Composite(image=>$gradient, compose=>'multiply');
+  	#			$opacity=($opacity/100);
+  	#			$temp_image->Evaluate(value=>$opacity, operator=>'Multiply', channel=>'Alpha');
+  	#			$temp_image->Set(alpha=>'copy');
+	#			
+	#			}
+	#			else {
+ 		#			# this one does not have a transparent channel
+		#			Logger($config_options,"Glass Tabling NON Transparent Image","DEBUG");
+  	#			$gradient->Set(alpha=>'copy');
+  	#			$temp_image->Composite(image=>$gradient, compose=>'CopyOpacity');
+  	#			$opacity=($opacity/100);
+  	#			$temp_image->Evaluate(value=>$opacity, operator=>'Multiply', channel=>'Alpha');
+	#			}
+#			
+	#			
+	#			my $clipboard=Image::Magick->new();
+	#			push(@$clipboard, $base_image);
+	#			push(@$clipboard, $temp_image);
+	#			$base_image=$clipboard->Append();
 
 	return $base_image;
 }	
@@ -344,6 +384,7 @@ sub AdjustOpacity {
 	my $base_image=shift;
 	my $opacity_percent=shift;
 
+
 	my $opacity=Image::Magick->new(Magick=>'png');
 	my ($width, $height) = $base_image->Get('columns', 'rows');
 
@@ -354,6 +395,7 @@ sub AdjustOpacity {
 	$base_image->Evaluate(value=>$opacity_percent,operator=>'Multiply',channel=>'All');
 	$base_image->Set(alpha=>'copy');
 	$opacity->Composite(image=>$base_image,compose=>"copyopacity");
+
 
 	return $opacity;
 
@@ -685,7 +727,7 @@ sub AddImageElement {
 		} # end While
 	
 #$base_image->Composite(image=>$temp, compose=>'src-atop', geometry=>$geometry, x=>$composite_x, y=>$composite_y);
-		$temp->Set(alpha=>'on');
+		$temp->Set(alpha=>'');
 		$base_image->Composite(image=>$temp, compose=>'src-over', geometry=>$geometry, x=>$composite_x, y=>$composite_y);
 		undef $temp;
 }
@@ -1236,7 +1278,7 @@ sub generate_moviesheet {
 		 	Logger($config_options,$msg,"DEBUG");
 		# Create a Canvas
 		my $geometry=sprintf("%dx%d",$token->attr->{Width},$token->attr->{Height});
-		$moviesheet=Image::Magick->new(size=>$geometry); # invoke new image
+		$moviesheet=Image::Magick->new(size=>$geometry,magick=>'png'); # invoke new image
 		$moviesheet->ReadImage('xc:black'); # make a white canvas
     }
 
@@ -1803,7 +1845,7 @@ $config_options{CONF_FILE}=$conf_file;
 $config_options{RECURSE}=$recurse;
 $config_options{INTERACTIVE}=$interactive;
 $config_options{PREFERTGMD}=$tgmd;
-$config_options{VERSION}="v 0.6.1";
+$config_options{VERSION}="v 0.6.1.20100712";
 
 # read in the options in the config file
 open (FD, $config_options{CONF_FILE}) or die "Unable to open config file $config_options{CONF_FILE}\n";

@@ -20,7 +20,7 @@ v 0.6
 - tgmd files get parsed before going to the Internet.
 - fixed bug in parsing tgmd file.
 - fixed a bug that eroneously ouputs crit errors for country codes (subtitles) when the string is empty
-- fixed a bug in handling opacity with GlassTable.
+- added increased debugging output to help diagnose font issue.
 
 v 0.5
 - removed provider selection ability.  We use both, themoviedb for fanart and imdb for the rest

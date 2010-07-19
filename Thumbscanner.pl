@@ -1696,8 +1696,20 @@ sub GetMediaInfo {
 			elsif ($channels == 2) {$provider_hash->{SOUNDFORMAT} = "DTS20";}
 			else {$provider_hash->{SOUNDFORMAT} = "DTS";}
 		}
+		elsif ($audio_codec =~ /aac/i) {
+			my $channels=$media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_};
+			$channels =~ s/\D//g;
+			if ($channels == 8) {$provider_hash->{SOUNDFORMAT} = "AAC71";}
+			elsif ($channels == 7) {$provider_hash->{SOUNDFORMAT} = "AAC70";}
+			elsif ($channels == 6) {$provider_hash->{SOUNDFORMAT} = "AAC51";}
+			elsif ($channels == 5) {$provider_hash->{SOUNDFORMAT} = "AAC41";}
+			elsif ($channels == 4) {$provider_hash->{SOUNDFORMAT} = "AAC40";}
+			elsif ($channels == 3) {$provider_hash->{SOUNDFORMAT} = "AAC21";}
+			elsif ($channels == 2) {$provider_hash->{SOUNDFORMAT} = "AAC20";}
+			elsif ($channels == 1) {$provider_hash->{SOUNDFORMAT} = "AAC10";}
+			else {$provider_hash->{SOUNDFORMAT} = "AAC";}
+		}
 		else {
-			$provider_hash->{SOUNDFORMAT}					=~ s/AC-3/AAC Unknown/i;
 			$provider_hash->{SOUNDFORMAT}					=~ s/.*mpeg.*/All MPEG/i;
 			# more search/replace as found.
 		}

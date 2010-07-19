@@ -385,19 +385,33 @@ sub AdjustOpacity {
 	my $opacity_percent=shift;
 
 
-	my $opacity=Image::Magick->new(Magick=>'png');
-	my ($width, $height) = $base_image->Get('columns', 'rows');
 
-	$opacity=$base_image->Clone();
+	if ($base_image->Get('matte')) {
+		Logger($config_options,"Adjusting Opacity to $opacity_percent on image with transparency channel","DEBUG");
+	}
+	else {
+		Logger($config_options,"Adjusting Opacity to $opacity_percent on image without transparency channel","DEBUG");
+		my $opacity=Image::Magick->new(Magick=>'png');
+		my ($width, $height) = $base_image->Get('columns', 'rows');
+		$opacity->Set(size=>sprintf("%dx%d", $width, $height) );
+		$opacity->Read("xc:white");
+	  $opacity->Set(alpha=>'copy');
+ 	 	$base_image->Composite(image=>$opacity, compose=>'CopyOpacity');
+	}
+ 	$base_image->Evaluate(value=>$opacity_percent, operator=>'Multiply', channel=>'Alpha');
 
-	$base_image->Evaluate(value=>$opacity_percent,operator=>'Multiply',channel=>'Alpha');
-	$base_image->Set(alpha=>'extract');
-	$base_image->Evaluate(value=>$opacity_percent,operator=>'Multiply',channel=>'All');
-	$base_image->Set(alpha=>'copy');
-	$opacity->Composite(image=>$base_image,compose=>"copyopacity");
+	return $base_image;
 
+#		$opacity=$base_image->Clone();
 
-	return $opacity;
+#		$base_image->Evaluate(value=>$opacity_percent,operator=>'Multiply',channel=>'Alpha');
+#		$base_image->Set(alpha=>'extract');
+#		$base_image->Evaluate(value=>$opacity_percent,operator=>'Multiply',channel=>'All');
+#		$base_image->Set(alpha=>'copy');
+#		$opacity->Composite(image=>$base_image,compose=>"copyopacity");
+#		
+#		
+#		return $opacity;
 
 
 }
@@ -489,23 +503,49 @@ sub RoundCorners {
 
 	$base_image=$white->Clone();
 
-	if ( $border_width > 0 ) { 
-	# this is what I am thinking here.  clone the image. resize it by borderwidth fill it with the bordercolor
-	# lay the original image inside of the filled one.  The should give a border....
-		my $border_image=Image::Magick->new(magick=>'png');
-		$border_image=$base_image->Clone();
-		($width, $height) = $base_image->Get('columns', 'rows');
+#if ( $border_width > 0 ) { 
+## this is what I am thinking here.  clone the image. resize it by borderwidth fill it with the bordercolor
+## lay the original image inside of the filled one.  The should give a border....
+#my $border_image=Image::Magick->new(magick=>'png');
+#$border_image=$base_image->Clone();
+#($width, $height) = $base_image->Get('columns', 'rows');
+#$border_color=GetColor($config_options,$border_color);
+#$border_image->Resize(width=>$width+(2*$border_width),height=>$height+(2*$border_width));
+#$border_image->Set(background=>$border_color);
+#$border_image->Shadow(opacity=>100,sigma=>0,X=>0, Y=>0);
+#$border_image->Composite(image=>$base_image,compose=>'src-over',x=>$border_width,y=>$border_width);
+#$base_image=$border_image;
+#undef $border_image;
+#}
+#undef $TopLeft;
+#undef $orig_image;
+#return $base_image;
+	 if ( $border_width > 0 ) {
+  	# this is what I am thinking here.  clone the image. resize it by borderwidth fill it with the bordercolor
+  	# lay the original image inside of the filled one.  The should give a border....
+    my $border_image=Image::Magick->new(magick=>'png');
+    $border_image=$base_image->Clone();
+    ($width, $height) = $base_image->Get('columns', 'rows');
+    $border_image->Resize(width=>$width+(2*$border_width),height=>$height+(2*$border_width));
 		$border_color=GetColor($config_options,$border_color);
-		$border_image->Resize(width=>$width+(2*$border_width),height=>$height+(2*$border_width));
-		$border_image->Set(background=>$border_color);
-		$border_image->Shadow(opacity=>100,sigma=>0,X=>0, Y=>0);
+    $border_image->Set(background=>$border_color);
+    $border_image->Shadow(opacity=>100,sigma=>0,X=>0, Y=>0);
+
+  	my $gif_image=Image::Magick->new(magick=>'gif');
+  	$gif_image->Set(size=>sprintf('%dx%d',$width+(2*$border_width),$height+(2*$border_width)));
+  	$gif_image->Read('xc:none');
+  	$gif_image->Composite(image=>$base_image,compose=>'src',x=>$border_width,y=>$border_width);
+  	$gif_image->Set(alpha=>'extract');
+
+		$border_image->Composite(image=>$border_image,mask=>$gif_image,compose=>'clear');
 		$border_image->Composite(image=>$base_image,compose=>'src-over',x=>$border_width,y=>$border_width);
-		$base_image=$border_image;
-		undef $border_image;
-	}
-	undef $TopLeft;
-	undef $orig_image;
-	return $base_image;
+    $base_image=$border_image;
+    undef $border_image;
+  }
+
+
+return $base_image;
+
 }
 
 sub GetColor {
@@ -525,6 +565,9 @@ sub GetColor {
 	my $result = "#$red$green$blue$alpha";
 	Logger($config_options,"GetColor Request orig->$ID_color result->$result","DEBUG");
 	return $result;
+
+# HACK -128 should return some sort of yellow.  as per dachouffe
+
 }
 
 sub AddImageElement {
@@ -1640,11 +1683,24 @@ sub GetMediaInfo {
 		$provider_hash->{MEDIAFORMATTEXT}			= uc($provider_hash->{MEDIAFORMAT});
 
 		# supported values AAC51, AAC, AAC20, DD51, DD20, DTS51, MP3, FLAC, WMA, VORBIS, DTSHD, DTRUEHD
-		$provider_hash->{SOUNDFORMAT}					= lc($media_info->{Mediainfo}->{File}->{track}->[2]->{Format});
-		$provider_hash->{SOUNDFORMAT}					=~ s/AC-3/AAC Unknown/i;
-		$provider_hash->{SOUNDFORMAT}					=~ s/.*mpeg.*/All MPEG/i;
-		$provider_hash->{SOUNDFORMAT}					=~ s/.*dts.*/dts/i;
-		# more search/replace as found.
+		my $audio_codec = lc($media_info->{Mediainfo}->{File}->{track}->[2]->{Format});
+		if ($audio_codec =~ /dts/i) {
+			my $channels=$media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_};
+			$channels =~ s/\D//g;
+			if ($channels == 8) {$provider_hash->{SOUNDFORMAT} = "DTS71";}
+			elsif ($channels == 7) {$provider_hash->{SOUNDFORMAT} = "DTS70";}
+			elsif ($channels == 6) {$provider_hash->{SOUNDFORMAT} = "DTS51";}
+			elsif ($channels == 5) {$provider_hash->{SOUNDFORMAT} = "DTS41";}
+			elsif ($channels == 4) {$provider_hash->{SOUNDFORMAT} = "DTS40";}
+			elsif ($channels == 3) {$provider_hash->{SOUNDFORMAT} = "DTS21";}
+			elsif ($channels == 2) {$provider_hash->{SOUNDFORMAT} = "DTS20";}
+			else {$provider_hash->{SOUNDFORMAT} = "DTS";}
+		}
+		else {
+			$provider_hash->{SOUNDFORMAT}					=~ s/AC-3/AAC Unknown/i;
+			$provider_hash->{SOUNDFORMAT}					=~ s/.*mpeg.*/All MPEG/i;
+			# more search/replace as found.
+		}
 	
 		# internal subtitles
 		my @sub_ary=map{$_->{type} =~ /text/i ? $_->{Language} : () } @{$media_info->{Mediainfo}->{File}->{track}};
@@ -1660,12 +1716,23 @@ sub GetMediaInfo {
 		$provider_hash->{EXTERNALSUBTITLES}		= '';
 		$provider_hash->{EXTERNALSUBTITLESTEXT}		= '';
 	
+		# figure out the resolution.
+		# if the aspect ratio is 4:3 take the width/4*3 to get the resolution
+		# if the aspect ratio is 16:9 its width/16*9 
+		# else its something odd like 2.35:1 (still 16/9 more or less) just key off of the width
+		# typical resolutions are
+		#  288P 480I 480P 576I 576P 720I 720P 1080I 1080P
+
 		my $suffix	= lc(substr($media_info->{Mediainfo}->{File}->{track}->[1]->{Scan_Type},0,1)) ;
-		my $height	= lc($media_info->{Mediainfo}->{File}->{track}->[1]->{Height}) ;
-		if ($height > 720) { $provider_hash->{RESOLUTION} = sprintf ("1080%s",$suffix); }
-		elsif ($height > 576) { $provider_hash->{RESOLUTION} = sprintf ("720%s",$suffix); }
-		elsif ($height > 480) { $provider_hash->{RESOLUTION} = sprintf ("576%s",$suffix); }
-		elsif ($height > 288) { $provider_hash->{RESOLUTION} = sprintf ("480%s",$suffix); }
+		my $width	= lc($media_info->{Mediainfo}->{File}->{track}->[1]->{Width}) ;
+		$width =~ s/\D//g;
+
+		if ($provider_hash->{ASPECTRATIOTEXT} eq "4:3" )  { $provider_hash->{RESOLUTION} = sprintf ("%d%s",($width/4*3),$suffix); } 
+		elsif ($provider_hash->{ASPECTRATIOTEXT} eq "16x9" ) { $provider_hash->{RESOLUTION} = sprintf ("%d%s",($width/16*9),$suffix); }
+		elsif ($width == 1920) { $provider_hash->{RESOLUTION} = sprintf ("1080%s",$suffix); }
+		elsif ($width == 1280) { $provider_hash->{RESOLUTION} = sprintf ("720%s",$suffix); }
+		elsif ($width == 720) { $provider_hash->{RESOLUTION} = sprintf ("576%s",$suffix); }
+		elsif ($width == 640) { $provider_hash->{RESOLUTION} = sprintf ("480%s",$suffix); }
 		else { $provider_hash->{RESOLUTION} = "288p" ; }
 	}
 }

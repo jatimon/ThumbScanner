@@ -1198,7 +1198,12 @@ sub DeTokenize {
 	}
 
 	if ($$string =~ /\%RESOLUTION\%/ ) {
-		$$string =~ s/\%RESOLUTION\%/$provider_hash->{RESOLUTION}/;
+		my $rep="";
+		foreach (@{$template_xml->{Template}->{Resolutions}->{Resolution} }) {
+			$rep = $_->{Image}->{value} if $provider_hash->{RESOLUTION} =~  /$_->{Text}->{value}/i;
+		}
+		Logger($config_options,"RESOLUTION $provider_hash->{RESOLUTION} resolves to $rep","DEBUG");
+		$$string =~ s/\%RESOLUTION\%/$rep/;
 	}
 
 	if ($$string =~ /\%SOUNDFORMAT\%/ ) {
@@ -1709,6 +1714,18 @@ sub GetMediaInfo {
 			elsif ($channels == 1) {$provider_hash->{SOUNDFORMAT} = "AAC10";}
 			else {$provider_hash->{SOUNDFORMAT} = "AAC";}
 		}
+		elsif ($audio_codec =~ /AC-3/i) {
+			my $channels=$media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_};
+			$channels =~ s/\D//g;
+			if ($channels == 8) {$provider_hash->{SOUNDFORMAT} = "DD71";}
+			elsif ($channels == 7) {$provider_hash->{SOUNDFORMAT} = "DD70";}
+			elsif ($channels == 6) {$provider_hash->{SOUNDFORMAT} = "DD51";}
+			elsif ($channels == 5) {$provider_hash->{SOUNDFORMAT} = "DD41";}
+			elsif ($channels == 4) {$provider_hash->{SOUNDFORMAT} = "DD40";}
+			elsif ($channels == 3) {$provider_hash->{SOUNDFORMAT} = "DD21";}
+			elsif ($channels == 2) {$provider_hash->{SOUNDFORMAT} = "DD20";}
+			else {$provider_hash->{SOUNDFORMAT} = "DD";}
+		}
 		else {
 			$provider_hash->{SOUNDFORMAT}					=~ s/.*mpeg.*/All MPEG/i;
 			# more search/replace as found.
@@ -1735,17 +1752,37 @@ sub GetMediaInfo {
 		# typical resolutions are
 		#  288P 480I 480P 576I 576P 720I 720P 1080I 1080P
 
-		my $suffix	= lc(substr($media_info->{Mediainfo}->{File}->{track}->[1]->{Scan_Type},0,1)) ;
+		my $suffix	= lc(substr($media_info->{Mediainfo}->{File}->{track}->[1]->{Scan_type},0,1)) ;
 		my $width	= lc($media_info->{Mediainfo}->{File}->{track}->[1]->{Width}) ;
 		$width =~ s/\D//g;
 
-		if ($provider_hash->{ASPECTRATIOTEXT} eq "4:3" )  { $provider_hash->{RESOLUTION} = sprintf ("%d%s",($width/4*3),$suffix); } 
-		elsif ($provider_hash->{ASPECTRATIOTEXT} eq "16x9" ) { $provider_hash->{RESOLUTION} = sprintf ("%d%s",($width/16*9),$suffix); }
-		elsif ($width == 1920) { $provider_hash->{RESOLUTION} = sprintf ("1080%s",$suffix); }
-		elsif ($width == 1280) { $provider_hash->{RESOLUTION} = sprintf ("720%s",$suffix); }
-		elsif ($width == 720) { $provider_hash->{RESOLUTION} = sprintf ("576%s",$suffix); }
-		elsif ($width == 640) { $provider_hash->{RESOLUTION} = sprintf ("480%s",$suffix); }
+		if ($provider_hash->{ASPECTRATIOTEXT} eq "4:3" )  { 
+			Logger($config_options,"Calculating Resolution for apectratio 4:3 width=$width suffix=$suffix","DEBUG");
+			$provider_hash->{RESOLUTION} = sprintf ("%d%s",($width/4*3),$suffix); 
+		} 
+		elsif ($provider_hash->{ASPECTRATIOTEXT} eq "16x9" ) {
+			Logger($config_options,"Calculating Resolution for apectratio 16:9 width=$width suffix=$suffix","DEBUG");
+		 	$provider_hash->{RESOLUTION} = sprintf ("%d%s",($width/16*9),$suffix); 
+		}
+		elsif ($width == 1920) { 
+			Logger($config_options,"Calculating Resolution for width=$width suffix=$suffix","DEBUG");
+			$provider_hash->{RESOLUTION} = sprintf ("1080%s",$suffix); 
+		}
+		elsif ($width == 1280) { 
+			Logger($config_options,"Calculating Resolution for width=$width suffix=$suffix","DEBUG");
+			$provider_hash->{RESOLUTION} = sprintf ("720%s",$suffix); 
+		}
+		elsif ($width == 720) { 
+			Logger($config_options,"Calculating Resolution for width=$width suffix=$suffix","DEBUG");
+			$provider_hash->{RESOLUTION} = sprintf ("576%s",$suffix); 
+		}
+		elsif ($width == 640) { 
+			Logger($config_options,"Calculating Resolution for width=$width suffix=$suffix","DEBUG");
+			$provider_hash->{RESOLUTION} = sprintf ("480%s",$suffix); 
+		}
 		else { $provider_hash->{RESOLUTION} = "288p" ; }
+
+		Logger($config_options,"Resolution has been determined to be ".$provider_hash->{RESOLUTION},"DEBUG");
 	}
 }
 
@@ -1924,7 +1961,7 @@ $config_options{CONF_FILE}=$conf_file;
 $config_options{RECURSE}=$recurse;
 $config_options{INTERACTIVE}=$interactive;
 $config_options{PREFERTGMD}=$tgmd;
-$config_options{VERSION}="v 0.6.1.20100712";
+$config_options{VERSION}="v 0.6.1.20100719";
 
 # read in the options in the config file
 open (FD, $config_options{CONF_FILE}) or die "Unable to open config file $config_options{CONF_FILE}\n";

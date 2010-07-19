@@ -18,7 +18,6 @@
 			Extra Sheet - Used in the browser screen of the Playon!HD
 - generate rss, nfo and tgmd files.
 - GlassTable isn't quite right.  the opacity is a bit off
-- Dachouffe has found a color bug.  -127 should resolve to something yellow.  need to revisit
 
 -----
 NOTES

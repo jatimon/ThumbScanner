@@ -21,6 +21,7 @@ v 0.6
 - fixed bug in parsing tgmd file.
 - fixed a bug that eroneously ouputs crit errors for country codes (subtitles) when the string is empty
 - added increased debugging output to help diagnose font issue.
+- fixed Dachouffe's color bug (at least I think i did)
 
 v 0.5
 - removed provider selection ability.  We use both, themoviedb for fanart and imdb for the rest

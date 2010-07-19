@@ -557,16 +557,16 @@ sub GetColor {
 
 	my $hex = sprintf ("%x",$ID_color);
 
-	my $alpha= substr($hex,0,2);
-	my $red= substr($hex,2,2);
-	my $green= substr($hex,4,2);
-	my $blue= substr($hex,6,2);
+	my $alpha= (substr($hex,0,2) ? substr($hex,0,2) : "00");
+	my $red= (substr($hex,2,2) ? substr($hex,2,2) : "00");
+	my $green= (substr($hex,4,2) ? substr($hex,4,2) : "00");
+	my $blue= (substr($hex,6,2) ? substr($hex,6,2) : "00");
 
-	my $result = "#$red$green$blue$alpha";
+	#my $result = "#$red$green$blue$alpha";
+	my $result = "#$red$green$blue";
+
 	Logger($config_options,"GetColor Request orig->$ID_color result->$result","DEBUG");
 	return $result;
-
-# HACK -128 should return some sort of yellow.  as per dachouffe
 
 }
 
@@ -1204,7 +1204,7 @@ sub DeTokenize {
 	if ($$string =~ /\%SOUNDFORMAT\%/ ) {
 		my $rep="";
 		foreach (@{$template_xml->{Template}->{SoundFormats}->{SoundFormat} }) {
-			$rep = $_->{Image}->{value} if $provider_hash->{SOUNDFORMAT} =~  /$_->{Text}->{value}/i;
+			$rep = $_->{Image}->{value} if $provider_hash->{SOUNDFORMAT} =~  /$_->{Name}->{value}/i;
 		}
 		Logger($config_options,"SOUNDFORMAT $provider_hash->{SOUNDFORMAT} resolves to $rep","DEBUG");
 		$$string =~ s/\%SOUNDFORMAT\%/$rep/;

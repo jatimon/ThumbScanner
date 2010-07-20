@@ -1726,6 +1726,13 @@ sub GetMediaInfo {
 			elsif ($channels == 2) {$provider_hash->{SOUNDFORMAT} = "DD20";}
 			else {$provider_hash->{SOUNDFORMAT} = "DD";}
 		}
+		elsif ($audio_codec =~ /mpeg/i) {
+			my $channels=$media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_};
+			$channels =~ s/\D//g;
+			elsif ($channels == 2) {$provider_hash->{SOUNDFORMAT} = "MP320";}
+			elsif ($channels == 1) {$provider_hash->{SOUNDFORMAT} = "MP310";}
+			else {$provider_hash->{SOUNDFORMAT} = "MP3";}
+		}
 		else {
 			$provider_hash->{SOUNDFORMAT}					=~ s/.*mpeg.*/All MPEG/i;
 			# more search/replace as found.

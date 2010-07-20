@@ -1689,9 +1689,10 @@ sub GetMediaInfo {
 
 		# supported values AAC51, AAC, AAC20, DD51, DD20, DTS51, MP3, FLAC, WMA, VORBIS, DTSHD, DTRUEHD
 		my $audio_codec = lc($media_info->{Mediainfo}->{File}->{track}->[2]->{Format});
+		my $channels=$media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_};
+		$channels =~ s/\D//g;
+
 		if ($audio_codec =~ /dts/i) {
-			my $channels=$media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_};
-			$channels =~ s/\D//g;
 			if ($channels == 8) {$provider_hash->{SOUNDFORMAT} = "DTS71";}
 			elsif ($channels == 7) {$provider_hash->{SOUNDFORMAT} = "DTS70";}
 			elsif ($channels == 6) {$provider_hash->{SOUNDFORMAT} = "DTS51";}
@@ -1702,8 +1703,6 @@ sub GetMediaInfo {
 			else {$provider_hash->{SOUNDFORMAT} = "DTS";}
 		}
 		elsif ($audio_codec =~ /aac/i) {
-			my $channels=$media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_};
-			$channels =~ s/\D//g;
 			if ($channels == 8) {$provider_hash->{SOUNDFORMAT} = "AAC71";}
 			elsif ($channels == 7) {$provider_hash->{SOUNDFORMAT} = "AAC70";}
 			elsif ($channels == 6) {$provider_hash->{SOUNDFORMAT} = "AAC51";}
@@ -1715,8 +1714,6 @@ sub GetMediaInfo {
 			else {$provider_hash->{SOUNDFORMAT} = "AAC";}
 		}
 		elsif ($audio_codec =~ /AC-3/i) {
-			my $channels=$media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_};
-			$channels =~ s/\D//g;
 			if ($channels == 8) {$provider_hash->{SOUNDFORMAT} = "DD71";}
 			elsif ($channels == 7) {$provider_hash->{SOUNDFORMAT} = "DD70";}
 			elsif ($channels == 6) {$provider_hash->{SOUNDFORMAT} = "DD51";}
@@ -1727,9 +1724,7 @@ sub GetMediaInfo {
 			else {$provider_hash->{SOUNDFORMAT} = "DD";}
 		}
 		elsif ($audio_codec =~ /mpeg/i) {
-			my $channels=$media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_};
-			$channels =~ s/\D//g;
-			elsif ($channels == 2) {$provider_hash->{SOUNDFORMAT} = "MP320";}
+			if ($channels == 2) {$provider_hash->{SOUNDFORMAT} = "MP320";}
 			elsif ($channels == 1) {$provider_hash->{SOUNDFORMAT} = "MP310";}
 			else {$provider_hash->{SOUNDFORMAT} = "MP3";}
 		}
@@ -1968,7 +1963,8 @@ $config_options{CONF_FILE}=$conf_file;
 $config_options{RECURSE}=$recurse;
 $config_options{INTERACTIVE}=$interactive;
 $config_options{PREFERTGMD}=$tgmd;
-$config_options{VERSION}="v 0.6.1.20100719";
+$config_options{VERSION}="v 0.6";
+$config_options{BUILD_DATE}="Tue Jul 20 2010";
 
 # read in the options in the config file
 open (FD, $config_options{CONF_FILE}) or die "Unable to open config file $config_options{CONF_FILE}\n";

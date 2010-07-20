@@ -8,7 +8,6 @@
 - perhaps a script to add fonts to imagemagick
 - fix for .iso files (mount loopback, mediainfo the vts*.ifo for subtitles, and the vobs for the rest, adding durations)
 - roll it all up into an app.bin
-- add more logic for specific audioformats
 - search directories for only specific file suffixes, .iso .ifo
 - add options for Thumbgen like extra sheets
 			Thumbnail - $M\$N for the small Thumbnail (Cover)

@@ -1596,7 +1596,12 @@ sub GetMediaDetails_tmdb {
   my @backdrops;
   # grab the backdrop image from themoviedb
   foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
-   	push ( @backdrops, $_->{url}->{value}) if ( ($_->{size}->{value} =~ /original/i) && ($_->{type}->{value} =~ /backdrop/i) );
+		my $url=$_->{url}->{value};
+		$url =~ s/(^.+:\/\/)//;
+		my $protocol=$1;
+		$url =~ s/\/\//\//g;
+		$url = $protocol.$url;
+   	push ( @backdrops, $url ) if ( ($_->{size}->{value} =~ /original/i) && ($_->{type}->{value} =~ /backdrop/i) );
   }
   if (scalar (@backdrops) > 1) {
    	# pick one randomly
@@ -1612,7 +1617,12 @@ sub GetMediaDetails_tmdb {
   my @fanart;
   # grab the fanart image from themoviedb
    foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
-     push ( @fanart, $_->{url}->{value}) if ( ($_->{size}->{value} =~ /original/i) && ($_->{type}->{value} =~ /backdrop/i) );
+		my $url=$_->{url}->{value};
+		$url =~ s/(^.+:\/\/)//;
+		my $protocol=$1;
+		$url =~ s/\/\//\//g;
+		$url = $protocol.$url;
+    push ( @fanart, $url ) if ( ($_->{size}->{value} =~ /original/i) && ($_->{type}->{value} =~ /backdrop/i) );
    }
 	$provider_hash->{FANART1}=$fanart[0] unless defined $provider_hash->{FANART1};
 	$provider_hash->{FANART2}=$fanart[1] unless defined $provider_hash->{FANART2};

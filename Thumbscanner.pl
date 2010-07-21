@@ -1846,9 +1846,6 @@ sub WriteNFO {
 	print FD "\t</Countries>\n";
 	print FD "</MovieInfo>\n";
 	close FD;
-
-
-
 }
 
 
@@ -1956,8 +1953,8 @@ sub ScanMovieDir {
 				}
 
 				if ($config_options->{NFO} == 1) {
-					$provider_hash{NFOFILENAME}=sprintf("%s/%s.nfo",$config_options->{MOVIEPARENTFOLDER},$provider_hash{MOVIEFILENAMEWITHOUTEXT});
-					Logger($config_options,"Dumping NFO file to ".$provider_hash{NFOFILENAME},"DEBUG");
+					$provider_hash{NFOFILENAME}=sprintf("%s.nfo",$provider_hash{MOVIEFILENAMEWITHOUTEXT});
+					Logger($config_options,"Dumping NFO file to ".$provider_hash{MOVIEFILENAMEWITHOUTEXT},"DEBUG");
 					WriteNFO($config_options,\%provider_hash);
 				}
 

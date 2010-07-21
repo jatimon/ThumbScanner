@@ -801,7 +801,7 @@ sub ParseFont {
 
 	my %font_hash=(
 			'Family'		=>	"$font_ary[0]",
-			'Size'			=>	$font_ary[1],
+			'Size'			=>	$font_ary[1]+2, # this font size increase is an arbitrary workaround
 			'Unit'			=>	scalar(@font_ary) > 5 ?	$font_ary[6] : $font_ary[2],
 	);
 

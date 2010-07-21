@@ -1,3 +1,6 @@
+v 0.7
+- added a fix for poorly formated URLs returned from themoviedb.org
+
 v 0.6
 - Implemented Glow
 - Implemented AdjustGamma

@@ -15,7 +15,7 @@
 			Movie Information - Used by tvixie2playonhd to create gernes and to make rss files on the Playon!HD
 			Main Sheet - $M\$N$E_sheet - Main sheet for the Movie jukebox on the Playon!HD
 			Extra Sheet - Used in the browser screen of the Playon!HD
-- generate rss, nfo and tgmd files.
+- generate rss and tgmd files.
 - GlassTable isn't quite right.  the opacity is a bit off
 
 -----
@@ -42,52 +42,3 @@ these seem to map to
 - Movie Name $N
 - Extension $E
 - Movie Path $M
-o
-
-
------
-sample NFO file
-<?xml version="1.0" encoding="utf-8"?>
-<MovieInfo>
-  <Title>Death Proof</Title>
-  <OriginalTitle>Death Proof</OriginalTitle>
-  <Plot>Directors Quentin Tarantino and Robert Rodriguez present two full-length movies in a new horror double feature.
-
-In Tarantino's "Death Proof," Austin's hottest DJ, Jungle Julia, sets out into the night to unwind with her two friends Shanna an Arlene. Covertly tracking their moves is Stuntman Mike, a scarred rebel leering from behind the wheel of his muscle car, revving just feet away.</Plot>
-  <Year>2007</Year>
-  <Runtime>113</Runtime>
-  <Rating>7.2</Rating>
-  <Certification>Not Rated</Certification>
-  <IMDBLink>http://www.imdb.com/title/tt1028528/</IMDBLink>
-  <Resolutions>480P</Resolutions>
-  <SoundFormats>MP3</SoundFormats>
-  <MediaFormats>mpeg4</MediaFormats>
-  <Genres>
-    <string>Action</string>
-    <string>Erotic</string>
-    <string>Horror</string>
-  </Genres>
-  <Actors>
-    <string>Kurt Russell</string>
-    <string>Vanessa Ferlito</string>
-    <string>Jordan Ladd</string>
-    <string>Rosario Dawson</string>
-    <string>Rose McGowan</string>
-    <string>Sydney Tamiia Poitier</string>
-    <string>Tracie Thoms</string>
-    <string>Mary Elizabeth Winstead</string>
-    <string>Zoe Bell</string>
-    <string>Eli Roth</string>
-    <string>Michael Parks</string>
-    <string>Marley Shelton</string>
-    <string>Omar Doom</string>
-    <string>Russ Meyer</string>
-    <string>Quentin Tarantino</string>
-  </Actors>
-  <Directors>
-    <string>Quentin Tarantino</string>
-  </Directors>
-  <Countries>
-    <string>United States of America</string>
-  </Countries>
-</MovieInfo>

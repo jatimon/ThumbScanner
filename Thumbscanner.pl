@@ -556,6 +556,7 @@ sub GetColor {
 	my $ID_color=shift;
 
 	my $hex = sprintf ("%x",$ID_color);
+	if (length($hex) == 16) {$hex=substr($hex,8,16);}
 
 	my $alpha= (substr($hex,0,2) ? substr($hex,0,2) : "00");
 	my $red= (substr($hex,2,2) ? substr($hex,2,2) : "00");

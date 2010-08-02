@@ -36,6 +36,7 @@ Usage: Thumbscanner [options]
   -o  --overwrite         overwrite existing moviesheets and thumbnails
   -i  --interactive       prompt user to identify movie when there are multiple hits
   -t  --tgmd              prefer the use of tgmd file if found
+  -n  --nfo               generate a .nfo file
 
 Example:
   Thumbscanner -r -d INFO -o

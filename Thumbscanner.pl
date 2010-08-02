@@ -556,6 +556,7 @@ sub GetColor {
 	my $ID_color=shift;
 
 	my $hex = sprintf ("%x",$ID_color);
+	if (length($hex) == 16) {$hex=substr($hex,8,16);}
 
 	my $alpha= (substr($hex,0,2) ? substr($hex,0,2) : "00");
 	my $red= (substr($hex,2,2) ? substr($hex,2,2) : "00");
@@ -800,7 +801,7 @@ sub ParseFont {
 
 	my %font_hash=(
 			'Family'		=>	"$font_ary[0]",
-			'Size'			=>	$font_ary[1],
+			'Size'			=>	$font_ary[1]+2, # this font size increase is an arbitrary workaround
 			'Unit'			=>	scalar(@font_ary) > 5 ?	$font_ary[6] : $font_ary[2],
 	);
 
@@ -1241,7 +1242,6 @@ sub DeTokenize {
 		# we have an array of every director in this movie.  the template defines a max and a join character
 		my $max=$template_xml->{Template}->{Settings}->{Actors}->{MaximumValues}->{value};
 		my $join_char=$template_xml->{Template}->{Settings}->{Actors}->{Separator}->{value};
-#if ($join_char =~ /   /) {$join_char="\\n";}
 
 		# truncate the array if necessary
 		$#actors=($max-1) if $#actors>$max;
@@ -1596,7 +1596,12 @@ sub GetMediaDetails_tmdb {
   my @backdrops;
   # grab the backdrop image from themoviedb
   foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
-   	push ( @backdrops, $_->{url}->{value}) if ( ($_->{size}->{value} =~ /original/i) && ($_->{type}->{value} =~ /backdrop/i) );
+		my $url=$_->{url}->{value};
+		$url =~ s/(^.+:\/\/)//;
+		my $protocol=$1;
+		$url =~ s/\/\//\//g;
+		$url = $protocol.$url;
+   	push ( @backdrops, $url ) if ( ($_->{size}->{value} =~ /original/i) && ($_->{type}->{value} =~ /backdrop/i) );
   }
   if (scalar (@backdrops) > 1) {
    	# pick one randomly
@@ -1612,7 +1617,12 @@ sub GetMediaDetails_tmdb {
   my @fanart;
   # grab the fanart image from themoviedb
    foreach (@{ $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{images}->{image} } ) {
-     push ( @fanart, $_->{url}->{value}) if ( ($_->{size}->{value} =~ /original/i) && ($_->{type}->{value} =~ /backdrop/i) );
+		my $url=$_->{url}->{value};
+		$url =~ s/(^.+:\/\/)//;
+		my $protocol=$1;
+		$url =~ s/\/\//\//g;
+		$url = $protocol.$url;
+    push ( @fanart, $url ) if ( ($_->{size}->{value} =~ /original/i) && ($_->{type}->{value} =~ /backdrop/i) );
    }
 	$provider_hash->{FANART1}=$fanart[0] unless defined $provider_hash->{FANART1};
 	$provider_hash->{FANART2}=$fanart[1] unless defined $provider_hash->{FANART2};
@@ -1689,9 +1699,10 @@ sub GetMediaInfo {
 
 		# supported values AAC51, AAC, AAC20, DD51, DD20, DTS51, MP3, FLAC, WMA, VORBIS, DTSHD, DTRUEHD
 		my $audio_codec = lc($media_info->{Mediainfo}->{File}->{track}->[2]->{Format});
+		my $channels=$media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_};
+		$channels =~ s/\D//g;
+
 		if ($audio_codec =~ /dts/i) {
-			my $channels=$media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_};
-			$channels =~ s/\D//g;
 			if ($channels == 8) {$provider_hash->{SOUNDFORMAT} = "DTS71";}
 			elsif ($channels == 7) {$provider_hash->{SOUNDFORMAT} = "DTS70";}
 			elsif ($channels == 6) {$provider_hash->{SOUNDFORMAT} = "DTS51";}
@@ -1702,8 +1713,6 @@ sub GetMediaInfo {
 			else {$provider_hash->{SOUNDFORMAT} = "DTS";}
 		}
 		elsif ($audio_codec =~ /aac/i) {
-			my $channels=$media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_};
-			$channels =~ s/\D//g;
 			if ($channels == 8) {$provider_hash->{SOUNDFORMAT} = "AAC71";}
 			elsif ($channels == 7) {$provider_hash->{SOUNDFORMAT} = "AAC70";}
 			elsif ($channels == 6) {$provider_hash->{SOUNDFORMAT} = "AAC51";}
@@ -1715,8 +1724,6 @@ sub GetMediaInfo {
 			else {$provider_hash->{SOUNDFORMAT} = "AAC";}
 		}
 		elsif ($audio_codec =~ /AC-3/i) {
-			my $channels=$media_info->{Mediainfo}->{File}->{track}->[2]->{Channel_s_};
-			$channels =~ s/\D//g;
 			if ($channels == 8) {$provider_hash->{SOUNDFORMAT} = "DD71";}
 			elsif ($channels == 7) {$provider_hash->{SOUNDFORMAT} = "DD70";}
 			elsif ($channels == 6) {$provider_hash->{SOUNDFORMAT} = "DD51";}
@@ -1725,6 +1732,11 @@ sub GetMediaInfo {
 			elsif ($channels == 3) {$provider_hash->{SOUNDFORMAT} = "DD21";}
 			elsif ($channels == 2) {$provider_hash->{SOUNDFORMAT} = "DD20";}
 			else {$provider_hash->{SOUNDFORMAT} = "DD";}
+		}
+		elsif ($audio_codec =~ /mpeg/i) {
+			if ($channels == 2) {$provider_hash->{SOUNDFORMAT} = "MP320";}
+			elsif ($channels == 1) {$provider_hash->{SOUNDFORMAT} = "MP310";}
+			else {$provider_hash->{SOUNDFORMAT} = "MP3";}
 		}
 		else {
 			$provider_hash->{SOUNDFORMAT}					=~ s/.*mpeg.*/All MPEG/i;
@@ -1787,6 +1799,56 @@ sub GetMediaInfo {
 }
 
 
+sub WriteNFO {
+# output a .nfo file for this movie
+
+	my $config_options = shift;
+	my $provider_hash = shift;
+
+	open (FD, ">$provider_hash->{NFOFILENAME}") or die "Unable to write NFO file $provider_hash->{NFOFILENAME}\n";
+
+	print FD "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n";
+	print FD "<MovieInfo>\n";
+	printf FD "\t<Title>%s</Title>\n", $provider_hash->{TITLE};
+	printf FD "\t<OriginalTitle>%s</OriginalTitle>\n", $provider_hash->{ORIGINALTITLE};
+	printf FD "\t<Plot>%s</Plot>\n", $provider_hash->{PLOT};
+	printf FD "\t<Year>%s</Year>\n", $provider_hash->{YEAR};
+	printf FD "\t<Runtime>%s</Runtime>\n", $provider_hash->{RUNTIME};
+	printf FD "\t<Rating>%s</Rating>\n", $provider_hash->{RATING};
+	printf FD "\t<Certification>%s</Certification>\n", $provider_hash->{CERTIFICATION};
+	printf FD "\t<IMDBLink>%s</IMDBLink>\n", $provider_hash->{IMDBLink};
+	printf FD "\t<Resolutions>%s</Resolutions>\n", $provider_hash->{RESOLUTION};
+	printf FD "\t<SoundFormats>%s</SoundFormats>\n", $provider_hash->{SOUNDFORMAT};
+	printf FD "\t<MediaFormats>%s</MediaFormats>\n", $provider_hash->{MEDIAFORMAT};
+
+	print FD "\t<Genres>\n";
+	foreach (@{$provider_hash->{GENRES}}) {
+		print FD "\t\t<string>$_</string>\n";
+	}
+	print FD "\t</Genres>\n";
+
+	print FD "\t<Actors>\n";
+	foreach (@{$provider_hash->{ACTORS}}) {
+		print FD "\t\t<string>$_</string>\n";
+	}
+	print FD "\t</Actors>\n";
+
+	print FD "\t<Directors>\n";
+	foreach (@{$provider_hash->{DIRECTORS}}) {
+		print FD "\t\t<string>$_</string>\n";
+	}
+	print FD "\t</Directors>\n";
+
+	print FD "\t<Countries>\n";
+	foreach (@{$provider_hash->{COUNTRY}}) {
+		print FD "\t\t<string>$_</string>\n";
+	}
+	print FD "\t</Countries>\n";
+	print FD "</MovieInfo>\n";
+	close FD;
+}
+
+
 #---------------------------------------------------------------------------------------------
 #
 # Main
@@ -1809,6 +1871,7 @@ Usage: Thumbscanner [options]
   -o  --overwrite         overwrite existing moviesheets and thumbnails
   -i  --interactive       for instances where multiple hits are returned, prompt the user to pick one
   -t  --tgmd              prefer the use of tgmd file if found
+	-n	--NFO               generate a .nfo file
 
 Example:
   Thumbscanner -r -d INFO -o
@@ -1889,6 +1952,12 @@ sub ScanMovieDir {
 					$thumbnail->Write("$provider_hash{MOVIEFILENAMEWITHOUTEXT}.jpg");
 				}
 
+				if ($config_options->{NFO} == 1) {
+					$provider_hash{NFOFILENAME}=sprintf("%s.nfo",$provider_hash{MOVIEFILENAMEWITHOUTEXT});
+					Logger($config_options,"Dumping NFO file to ".$provider_hash{MOVIEFILENAMEWITHOUTEXT},"DEBUG");
+					WriteNFO($config_options,\%provider_hash);
+				}
+
 				# if we used a tgmd, we need to clean up after ourselves.
 				if (defined ($provider_hash{TGMD_FILE} ) ) {
 					Logger($config_options,"Clean Up TGMD Temp directory ".$provider_hash{TGMD_TEMPDIR},"DEBUG");
@@ -1941,6 +2010,7 @@ my $overwrite=0;
 my $conf_file="engine.conf";
 my $recurse=0;
 my $tgmd=0;
+my $nfo=0;
 my $interactive=0;
 my $help=0;
 
@@ -1950,6 +2020,7 @@ my $results=GetOptions ("debug=s"				=> \$debug,
 												"help"					=> \$help,
 												"interactive"		=> \$interactive,
 												"tgmd"					=> \$tgmd,
+												"nfo"						=> \$nfo,
 												"recurse"				=> \$recurse);
 
 Usage if $help;
@@ -1961,7 +2032,9 @@ $config_options{CONF_FILE}=$conf_file;
 $config_options{RECURSE}=$recurse;
 $config_options{INTERACTIVE}=$interactive;
 $config_options{PREFERTGMD}=$tgmd;
-$config_options{VERSION}="v 0.6.1.20100719";
+$config_options{NFO}=$nfo;
+$config_options{VERSION}="v 0.7";
+$config_options{BUILD_DATE}="Wed Jul 21 2010";
 
 # read in the options in the config file
 open (FD, $config_options{CONF_FILE}) or die "Unable to open config file $config_options{CONF_FILE}\n";

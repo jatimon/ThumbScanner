@@ -1,3 +1,9 @@
+v 0.7
+- added a fix for poorly formated URLs returned from themoviedb.org
+- fixed GetColor hex conversion routine on 64bit machines.
+- arbitrarily added 2 to the font size to workaround disparity with windows and linux
+- added the creation of .nfo files via the -n command line argument
+
 v 0.6
 - Implemented Glow
 - Implemented AdjustGamma
@@ -11,10 +17,10 @@ v 0.6
 - include mediainfo output in DEBUG
 - Error checking moviedb results
 - added moviemeter.nl as a COLLECTOR at dachouffe's request.
-- added initial support for TGMD files, not fully debugged. -t or --tmgd on the command line to perfer use of tgmd files
+- added initial support for reading TGMD files -t or --tmgd on the command line to perfer use of tgmd files
 - fixed text alignment issue added middleright and middleleft and autosize check
 - added a few more TEXT tokens
-- added check for dts and aac audioformat
+- added check for dts, aac, ac-3 and mp3 audioformat
 - fixed bug in AdjustOpacity
 - fixed bug in RoundCorners
 - tgmd files get parsed before going to the Internet.

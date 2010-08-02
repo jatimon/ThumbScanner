@@ -17,6 +17,10 @@
 			Extra Sheet - Used in the browser screen of the Playon!HD
 - generate rss and tgmd files.
 - GlassTable isn't quite right.  the opacity is a bit off
+- Add an option to 'tweak' the font size
+- For text elements like title (non multi-line) attempt to center the font vertically so that lower case letters that hang beneath the line are still visible.
+- for multi-line text elements, cut of the text at the latest sentence end if the content goes beyond the full height of the box.  
+	There are only three ways to end a sentence: with a period (.), a question mark (?), or an exclamation point  (!).
 
 -----
 NOTES
@@ -47,19 +51,6 @@ these seem to map to
 1* it does not scan or create templates for m2ts files (not embedded in ISO's)
 2* it does  not scan iso files (I know, problem with mediainfo) but why not create only a template without mediainfo. Thumbgen has the same problem, but does create a template.
 3* it look likes ThumbScanner does not use the information in the tmgd files. In the log it's enabled, but can't find that it uses it.
-
-[quote="joh417"]On the "aesthetics" side (nothing important, as all "techies" know, hahah)
-
-I modified my script this way:  $font_ary[1]+4
-
-[/quote]  I could add a config file option to set a font size increase amount, or you could edit the Template.xml file and change all font entries.  My first idea is probably less of an pain.
-
-[quote="joh417"]
-
-- Would it be a way to "set on top" the title of the movie so we can see the second "p" of Persepolis the right way?
-- Would it be possible to show one line more (or less) of the summary for not having a line cut? (This also happens on the cast but it is much less important because of all the movies I have only happens in this.)[/quote]
-
-both of these issues I can fix by checking the font metrics at rendering time and ensure that they fit properly in the font image box in the case of the title and in the case of the plot.  I can probably add some logic to check that what ever parts don't fit are truncated back to the preceeding punctuation mark.
 
 Would it be implemented in the near future support for templates for TV series? For example: "OmniGlass TV Sheet Small - Season Full".
 

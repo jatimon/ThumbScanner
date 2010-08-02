@@ -976,7 +976,7 @@ sub TextWrap {
 	my $new_text;
 	my $running_text="";
 
-	Logger($config_options,"Text Wrap before ->".$string,"DEBUG");
+	Logger($config_options,"Text Wrap before ->\n".$string,"DEBUG");
 
 	$string =~ /^(\s+)\S/;
 	my $indent=$1;
@@ -1011,7 +1011,7 @@ sub TextWrap {
 	}
 	$new_text.="$running_text\n";
 
-	Logger($config_options,"Text Wrap after  ->".$new_text,"DEBUG");
+	Logger($config_options,"Text Wrap after  ->\n".$new_text,"DEBUG");
 			
 	return $new_text;
 }
@@ -1550,12 +1550,12 @@ sub GetMediaDetails_imdb {
 	my $provider_hash=shift;
 	
 	my $movie = new IMDB::Film(crit => $provider_hash->{IMDB_ID});
-	
-	my %release=map{$_->{country} => $_->{date}} @{$movie->release_dates()};
-	my @cert = $movie->certifications();
-	my @directors=map {$_->{name}} @{$movie->directors()};
-	my @cast=map {$_->{name}} @{$movie->cast()} ;
-	my @countries=@{$movie->country()};
+
+	my %release= ( defined $movie->release_dates()) ? map{$_->{country} => $_->{date}} @{$movie->release_dates()} : {};
+	my @cert = (defined  $movie->certifications()) ? $movie->certifications() : "";
+	my @directors=( defined $movie->directors() ) ? map {$_->{name}} @{$movie->directors()} : "";
+	my @cast= (defined $movie->cast()) ? map {$_->{name}} @{$movie->cast()} : "" ;
+	my @countries=(defined $movie->country()) ? @{$movie->country()} : "" ;
 	
 	# provider_hash hash
 	
@@ -2034,7 +2034,7 @@ $config_options{INTERACTIVE}=$interactive;
 $config_options{PREFERTGMD}=$tgmd;
 $config_options{NFO}=$nfo;
 $config_options{VERSION}="v 0.7";
-$config_options{BUILD_DATE}="Wed Jul 21 2010";
+$config_options{BUILD_DATE}="Mon Aug  2 2010";
 
 # read in the options in the config file
 open (FD, $config_options{CONF_FILE}) or die "Unable to open config file $config_options{CONF_FILE}\n";

@@ -48,7 +48,6 @@ these seem to map to
 - Movie Path $M
 
 
-1* it does not scan or create templates for m2ts files (not embedded in ISO's)
 2* it does  not scan iso files (I know, problem with mediainfo) but why not create only a template without mediainfo. Thumbgen has the same problem, but does create a template.
 3* it look likes ThumbScanner does not use the information in the tmgd files. In the log it's enabled, but can't find that it uses it.
 

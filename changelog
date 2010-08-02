@@ -3,6 +3,8 @@ v 0.7
 - fixed GetColor hex conversion routine on 64bit machines.
 - arbitrarily added 2 to the font size to workaround disparity with windows and linux
 - added the creation of .nfo files via the -n command line argument
+- added support to include .m2ts files and .iso files without mediainfo
+- fixed a bug in imdb scraper validation
 
 v 0.6
 - Implemented Glow

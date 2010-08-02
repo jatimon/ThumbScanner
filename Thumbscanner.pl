@@ -1792,7 +1792,7 @@ sub GetMediaInfo {
 			Logger($config_options,"Calculating Resolution for width=$width suffix=$suffix","DEBUG");
 			$provider_hash->{RESOLUTION} = sprintf ("480%s",$suffix); 
 		}
-		else { $provider_hash->{RESOLUTION} = "288p" ; }
+		else { $provider_hash->{RESOLUTION} = "" ; }
 
 		Logger($config_options,"Resolution has been determined to be ".$provider_hash->{RESOLUTION},"DEBUG");
 	}
@@ -1898,7 +1898,7 @@ sub ScanMovieDir {
       ScanMovieDir($config_options,$name);
       next;
     }
-		elsif ( -e $name && grep{ /.*\.avi$/i || /.*\.mkv$/i || /.*\.mov$/i || /.*\.mpg$/i || /.*\.mpeg$/i || /.*\.wmv$/i || /.*\.mp4$/i || /.*\.qt$/i || /.*\.rm$/i } $name) {
+		elsif ( -e $name && grep{ /.*\.avi$/i || /.*\.m2ts$/i || /.*\.iso$/i || /.*\.mkv$/i || /.*\.mov$/i || /.*\.mpg$/i || /.*\.mpeg$/i || /.*\.wmv$/i || /.*\.mp4$/i || /.*\.qt$/i || /.*\.rm$/i } $name) {
 			my $moviesheet;
 			my $thumbnail;
 			my %provider_hash;

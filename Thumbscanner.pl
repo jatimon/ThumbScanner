@@ -1488,7 +1488,7 @@ sub GetMediaDetails_moviemeter {
   $provider_hash->{PLOT}= $movie_result->{plot};
   $provider_hash->{YEAR}= $movie_result->{year};
   $provider_hash->{ACTORS}= \@cast;
-  $provider_hash->{GENRES}= $movie_result->{genres};
+  $provider_hash->{GENRES}= defined($movie_result->{genres}) ? $movie_result->{genres} : {} ;
   $provider_hash->{DIRECTORS}= \@directors;
   $provider_hash->{COUNTRIES}= $movie_result->{countries}->[0]->{iso_3166_1};
   $provider_hash->{RELEASEDATE}= $movie_result->{dates_cinema}->[0]->{date};
@@ -1524,7 +1524,7 @@ sub GetMediaDetails_tgmd {
  	$provider_hash->{PLOT}= $tgmd_xml->{movie}->{plot};
  	$provider_hash->{YEAR}= $tgmd_xml->{movie}->{year};
  	$provider_hash->{ACTORS}= $tgmd_xml->{movie}->{actor}->{name};
- 	$provider_hash->{GENRES}= $tgmd_xml->{movie}->{genre}->{name};
+ 	$provider_hash->{GENRES}= defined ($tgmd_xml->{movie}->{genre}->{name}) ? $tgmd_xml->{movie}->{genre}->{name} : {};
  	$provider_hash->{DIRECTORS}= \@directors;
  	$provider_hash->{COUNTRY}= $tgmd_xml->{movie}->{country}->{name};
  	$provider_hash->{STUDIOS}= ref ($tgmd_xml->{movie}->{studio}->{name}) =~ /array/i ? $tgmd_xml->{movie}->{studio}->{name}->[0] : $tgmd_xml->{movie}->{studio}->{name};
@@ -1564,7 +1564,7 @@ sub GetMediaDetails_imdb {
 	$provider_hash->{PLOT}= $movie->full_plot() unless defined $provider_hash->{PLOT};
 	$provider_hash->{YEAR}= $movie->year() unless defined $provider_hash->{YEAR};
 	$provider_hash->{ACTORS}= \@cast unless defined $provider_hash->{ACTORS};
-	$provider_hash->{GENRES}= $movie->genres() unless defined $provider_hash->{GENRES};
+	$provider_hash->{GENRES}= defined ($movie->genres() ) ? $movie->genres() : {} unless defined $provider_hash->{GENRES};
 	$provider_hash->{DIRECTORS}= \@directors unless defined $provider_hash->{DIRECTORS};
 	$provider_hash->{MPAA}= $movie->mpaa_info() unless defined $provider_hash->{MPAA};
 	$provider_hash->{COUNTRIES}= $countries[0] unless defined $provider_hash->{COUNTRIES};

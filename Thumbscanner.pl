@@ -630,7 +630,7 @@ sub AddImageElement {
 			}
 
 			if ( $sourceData =~ /^http/i ) {
-				Logger($config_options,"grabbing $sourceData from the web","INFO");
+				Logger($config_options,"grabbing $sourceData from the web","DEBUG");
     		if ($temp->Read($sourceData)) {
 					Logger($config_options,"Unable to load image at $sourceData","CRIT");
 					next;
@@ -1914,7 +1914,7 @@ sub ScanMovieDir {
 			if ( ($config_options->{OVERWRITE}) || !( -e "$provider_hash{MOVIEFILENAMEWITHOUTEXT}.jpg"))  {
 				# if a tgmd file exists, use it.
 				if ( (-e "$provider_hash{FULLMOVIEPATH}.tgmd") && ($config_options->{PREFERTGMD} ) ) {
-					Logger($config_options,"found TGMD file, using it.","INFO");
+					Logger($config_options,"found TGMD file, using it.","DEBUG");
 					$provider_hash{TGMD_FILE}="$provider_hash{FULLMOVIEPATH}.tgmd";
 					GetMediaDetails_tgmd($config_options,\%provider_hash);
 				}
@@ -1942,12 +1942,12 @@ sub ScanMovieDir {
 
 				# start the movie sheet generation
 				$moviesheet=generate_moviesheet($config_options, \%provider_hash);
-				Logger($config_options,"Writing $provider_hash{FULLMOVIEPATH}_sheet.jpg","INFO");
+				Logger($config_options,"Writing $provider_hash{FULLMOVIEPATH}_sheet.jpg","DEBUG");
 				$moviesheet->Write("$provider_hash{FULLMOVIEPATH}_sheet.jpg");
 
 				# generate thumbnail
 				if ($provider_hash{COVER} ne "") {
-					Logger($config_options,"Writing thumbnail","INFO");
+					Logger($config_options,"Writing thumbnail","DEBUG");
 					$thumbnail=grab_thumbnail(\%provider_hash);
 					$thumbnail->Write("$provider_hash{MOVIEFILENAMEWITHOUTEXT}.jpg");
 				}

@@ -640,8 +640,8 @@ sub AddImageElement {
 			my @newSource = grep {/$sourceData/i} @{$config_options->{names}};
 				$sourceData=$newSource[0] if $newSource[0] ne '';
 				# check to make sure image file actually exists.  Otherwise Alert user and read xc:none
-				if (-e $sourceData) {
-    			$temp->Read($sourceData);
+				if (-e "$sourceData") {
+    			$temp->Read("$sourceData");
 				}
 				else {
 					Logger($config_options,"I could not find $sourceData","CRIT") unless $sourceData =~ /NONE/;
@@ -799,9 +799,10 @@ sub ParseFont {
 
 	# do we know about this font?
 
+
 	my %font_hash=(
 			'Family'		=>	"$font_ary[0]",
-			'Size'			=>	$font_ary[1]+2, # this font size increase is an arbitrary workaround
+			'Size'			=>	defined $config_options->{'E_SCALE'} ? $font_ary[1]+$config_options->{'E_SCALE'} : $font_ary[1],
 			'Unit'			=>	scalar(@font_ary) > 5 ?	$font_ary[6] : $font_ary[2],
 	);
 

@@ -1277,6 +1277,12 @@ sub DeTokenize {
     $$string =~ s/\%GENRES\%/$rep/;
 	}
 
+	if ( $$string =~ /\%TITLEPATH\%/ ) {
+		# fix the source, it will come in Window Path Format, switch it to Unix
+		$$string =~ s/\%TITLEPATH\%/$config_options->{TITLEPATH}/;
+		$$string =~ tr |\\|/|;
+		Logger($config_options,"TitlePath expanded -> $$string","DEBUG");
+	}
 
 	if ( $$string =~ /\%PATH\%/ ) {
 		# fix the source, it will come in Window Path Format, switch it to Unix
@@ -1903,6 +1909,7 @@ sub ScanMovieDir {
 			my $thumbnail;
 			my %provider_hash;
 
+			$provider_hash{TITLEPATH}=&cwd;
 			$provider_hash{FULLMOVIEPATH}=&cwd."/$name";
 			$provider_hash{MOVIEFILENAME}=$name;
 			$provider_hash{MOVIEFILENAMEWITHOUTEXT}=$name;

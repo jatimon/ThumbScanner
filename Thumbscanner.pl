@@ -1279,7 +1279,7 @@ sub DeTokenize {
 
 	if ( $$string =~ /\%TITLEPATH\%/ ) {
 		# fix the source, it will come in Window Path Format, switch it to Unix
-		$$string =~ s/\%TITLEPATH\%/$config_options->{TITLEPATH}/;
+		$$string =~ s/\%TITLEPATH\%/$provider_hash->{TITLEPATH}/;
 		$$string =~ tr |\\|/|;
 		Logger($config_options,"TitlePath expanded -> $$string","DEBUG");
 	}

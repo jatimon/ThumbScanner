@@ -2042,7 +2042,7 @@ $config_options{INTERACTIVE}=$interactive;
 $config_options{PREFERTGMD}=$tgmd;
 $config_options{NFO}=$nfo;
 $config_options{VERSION}="v 0.7";
-$config_options{BUILD_DATE}="Mon Aug  2 2010";
+$config_options{BUILD_DATE}="Thu Aug  5 2010";
 
 # read in the options in the config file
 open (FD, $config_options{CONF_FILE}) or die "Unable to open config file $config_options{CONF_FILE}\n";

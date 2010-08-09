@@ -1,9 +1,15 @@
-#!/usr/bin/env perl
+#!/usr/bin/env perl 
 # imagemagick redering converter from thumbgens xml files
 
 $|=1;
+${'^ENCODING'} = "S";
+
 
 use strict;
+use MLDBM;
+use SDBM_File;
+use DBM_Filter;
+use Fcntl;
 use Cwd;
 use Getopt::Long;
 use Image::Magick;
@@ -59,6 +65,8 @@ sub Logger {
       );
 
   open my $FD, ">> $config_options->{LOGFILE}" or die "unable to open $config_options->{LOGFILE}";
+	print $FD "$level:\t$message\n";
+	$message =~ s/[^[:ascii:]]+//g;
 	print $FD "$level:\t$message\n";
 	close $FD;
 
@@ -624,7 +632,7 @@ sub AddImageElement {
 			next unless DeTokenize($config_options,\$sourceData,$provider_hash,$template_xml);
 
 			if ($sourceData eq "") {
-				Logger($config_options,"I was unable to find image element information .. ".$token->attr->{Name},"CRIT");
+				Logger($config_options,"I was unable to find image element information .. [36m".$token->attr->{Name},"CRIT");
 				$temp->Read('xc:none');
 				next;
 			}
@@ -632,7 +640,7 @@ sub AddImageElement {
 			if ( $sourceData =~ /^http/i ) {
 				Logger($config_options,"grabbing $sourceData from the web","DEBUG");
     		if ($temp->Read($sourceData)) {
-					Logger($config_options,"Unable to load image at $sourceData","CRIT");
+					Logger($config_options,"Unable to load image at [36m$sourceData","CRIT");
 					next;
 				}
 			}
@@ -644,7 +652,7 @@ sub AddImageElement {
     			$temp->Read("$sourceData");
 				}
 				else {
-					Logger($config_options,"I could not find $sourceData","CRIT") unless $sourceData =~ /NONE/;
+					Logger($config_options,"I could not find [36m$sourceData","CRIT") unless $sourceData =~ /NONE/;
 					$temp->Read('xc:none');
 				}
 			}
@@ -762,7 +770,7 @@ sub AddImageElement {
 					}
 					else {
 						if ( ( $token->tag ) && ( $token->is_start_tag ) ) {
-							Logger($config_options,"don't know what to do with Image Element " . $token->tag ,"CRIT");
+							Logger($config_options,"don't know what to do with Image Element [36m" . $token->tag ,"CRIT");
 						}
 					}
 					last if ( ($token->tag =~ /Actions/) );
@@ -811,11 +819,11 @@ sub ParseFont {
 	my $temp=Image::Magick->new();
 	my @fonts=$temp->QueryFont($font_hash{Family});
 
-	Logger($config_options,"This font is not found ---- $font_hash{Family}","CRIT") unless defined ($fonts[0]);
+	Logger($config_options,"This font is not found ---- [36m$font_hash{Family}","CRIT") unless defined ($fonts[0]);
 	undef $temp;
 
 	unless (-e $fonts[10] ) {
-		Logger($config_options,"This glyph file is not found $fonts[10].  Please ensure your fonts are set up correctly.","CRIT");
+		Logger($config_options,"This glyph file is not found [36m$fonts[10].  Please ensure your fonts are set up correctly.","CRIT");
 	}
 
 	my $font_string=Dumper(\@fonts);
@@ -951,7 +959,7 @@ sub AddTextElement {
 					$temp->Scale(height=>$token->attr->{Height}, width=>$token->attr->{Width} );
 				}
 				elsif ( ( $token->tag ) && ( $token->is_start_tag ) ) {
-					Logger($config_options,"don't know what to do with Text Element ".$token->tag ,"CRIT");
+					Logger($config_options,"don't know what to do with Text Element [36m".$token->tag ,"CRIT");
 				}
 				last if ( ($token->tag =~ /Actions/) );
 			} # end  inner While
@@ -977,7 +985,7 @@ sub TextWrap {
 	my $new_text;
 	my $running_text="";
 
-	Logger($config_options,"Text Wrap before ->\n".$string,"DEBUG");
+	Logger($config_options,"Text Wrap before ->\n[36m".$string,"DEBUG");
 
 	$string =~ /^(\s+)\S/;
 	my $indent=$1;
@@ -1012,7 +1020,7 @@ sub TextWrap {
 	}
 	$new_text.="$running_text\n";
 
-	Logger($config_options,"Text Wrap after  ->\n".$new_text,"DEBUG");
+	Logger($config_options,"Text Wrap after  ->\n[36m".$new_text,"DEBUG");
 			
 	return $new_text;
 }
@@ -1097,7 +1105,7 @@ sub DeTokenize {
 				$$string =~ s/\{TITLECASE\}//;
 			}
 			else {
-				Logger($config_options,"I have found a text modifier I don't recognize -- $1?","CRIT");
+				Logger($config_options,"I have found a text modifier I don't recognize -- [36m$1?","CRIT");
 			}
 		}
 	}
@@ -1265,7 +1273,7 @@ sub DeTokenize {
 	}
 
 	if ($$string =~ /\%GENRES\%/ ) {
-		my @genres=@{$provider_hash->{GENRES}};
+		my @genres=defined $provider_hash->{GENRES} ? @{$provider_hash->{GENRES}}: {};
 
     # we have an array of every genre type.  the template defines a max and a join character
     my $max=$template_xml->{Template}->{Settings}->{Genres}->{MaximumValues}->{value};
@@ -1294,7 +1302,7 @@ sub DeTokenize {
 
 	if ($$string =~ /\%.+\%/ ) {
 		# add some color so this stands out
-		Logger($config_options,"Unable to Detokenize -> $$string","ERROR");
+		Logger($config_options,"Unable to Detokenize ->[36m $$string","ERROR");
 		return 0;
 	} 
 	return 1;
@@ -1339,13 +1347,13 @@ sub generate_moviesheet {
 
 		# add an image element to the canvas
     if ( ($token->tag eq "ImageElement") && ($token->is_start_tag)  ) {
-      Logger($config_options,"ImageElement ".$token->attr->{Name},"DEBUG");
+      Logger($config_options,"ImageElement [36m".$token->attr->{Name},"DEBUG");
 			AddImageElement($config_options,$provider_hash,$moviesheet,$token,$parser,$template_xml);
     }
 
 		# add a text element to the canvas
     if ( ($token->tag eq "TextElement") && ($token->is_start_tag)  ) {
-      Logger($config_options,"TextElement ".$token->attr->{Name},"DEBUG");
+      Logger($config_options,"TextElement [36m".$token->attr->{Name},"DEBUG");
 			AddTextElement($config_options,$provider_hash,$moviesheet,$token,$parser,$template_xml);
     }
 	}
@@ -1439,12 +1447,12 @@ sub GetTmdbID {
 
 	my $url;
 	
-	if (defined $provider_hash->{IMDB_ID} ) {
-		$url="http://api.themoviedb.org/2.1/Movie.imdbLookup/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/".$provider_hash->{IMDB_ID};
-	}
-	else {
+if ( (defined $provider_hash->{IMDB_ID} ) && ($config_options->{USECACHE} == 1) ) {
+$url="http://api.themoviedb.org/2.1/Movie.imdbLookup/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/".$provider_hash->{IMDB_ID};
+}
+else {
 		$url="http://api.themoviedb.org/2.1/Movie.search/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$movie_name";
-	}
+}
 
 	Logger($config_options,$url,"DEBUG");
 	my $response = $ua->get($url);
@@ -1483,19 +1491,29 @@ sub GetMediaDetails_moviemeter {
 	my $session = $client->call("api.startSession", $API_key);
 	my $moviemeterID = $client->call("film.retrieveByImdb",$session->{session_key},$provider_hash->{IMDB_ID});
 
+	if ( (ref ($moviemeterID) =~ /hash/i) && defined ($moviemeterID->{faultCode})) {
+		# Movie meter error
+		Logger($config_options,"Moviemeter collector error searching for movie [36m".$provider_hash->{MOVIEFILENAME},"CRIT");
+		Logger($config_options,"Moviemeter collector error string [36m\"".$moviemeterID->{faultString}."\"","CRIT");
+		Logger($config_options,"Moviemeter collector error code [36m".$moviemeterID->{faultCode},"CRIT");
+		return;
+	}
+
 	my $movie_result = $client->call("film.retrieveDetails",$session->{session_key},$moviemeterID);
+	if (defined ($movie_result->{faultCode} )) {
+		print "movie meter fail\n\n";
+	}
 
   my @directors=map {$_->{name}} @{$movie_result->{directors} };
   my @cast=map {$_->{name}} @{$movie_result->{actors} } ;
 
   # provider_hash hash
-
   $provider_hash->{TITLE}= $movie_result->{title};
   $provider_hash->{ORIGINALTITLE}= $movie_result->{alternative_titles}[0];
   $provider_hash->{PLOT}= $movie_result->{plot};
   $provider_hash->{YEAR}= $movie_result->{year};
   $provider_hash->{ACTORS}= \@cast;
-  $provider_hash->{GENRES}= defined($movie_result->{genres}) ? $movie_result->{genres} : {} ;
+  $provider_hash->{GENRES}= $movie_result->{genres};
   $provider_hash->{DIRECTORS}= \@directors;
   $provider_hash->{COUNTRIES}= $movie_result->{countries}->[0]->{iso_3166_1};
   $provider_hash->{RELEASEDATE}= $movie_result->{dates_cinema}->[0]->{date};
@@ -1556,7 +1574,17 @@ sub GetMediaDetails_imdb {
 	my $config_options=shift;
 	my $provider_hash=shift;
 	
-	my $movie = new IMDB::Film(crit => $provider_hash->{IMDB_ID});
+	my $movie;
+
+	eval { 
+		$movie = new IMDB::Film(crit => $provider_hash->{IMDB_ID}) || Logger($config_options,"Unknown IMDB Error","CRIT");
+	};
+  if($@) { 
+		# Opsssss! We got an exception!
+		Logger($config_options,"IMDB Error [36m$@","CRIT");
+    return;
+  }
+
 
 	my %release= ( defined $movie->release_dates()) ? map{$_->{country} => $_->{date}} @{$movie->release_dates()} : {};
 	my @cert = (defined  $movie->certifications()) ? $movie->certifications() : "";
@@ -1579,7 +1607,6 @@ sub GetMediaDetails_imdb {
 	$provider_hash->{RATING}= $movie->rating() unless defined $provider_hash->{RATING};
 	$provider_hash->{CERTIFICATION}= $cert[0]->{USA} unless defined $provider_hash->{CERTIFICATION};
 	$provider_hash->{RELEASEDATE}= $release{Canada} unless defined $provider_hash->{RELEASEDATE};
-
 
 }
 
@@ -1650,6 +1677,9 @@ sub GetMediaDetails_tmdb {
   }
 
 	$provider_hash->{IMDB_ID}=$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{imdb_id}->{value};
+
+	Logger($config_options,$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{overview}->{value},"DEBUG");
+	$provider_hash->{PLOT}= $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{overview}->{value};
 }
 
 sub GetMediaInfo {
@@ -1670,7 +1700,7 @@ sub GetMediaInfo {
 	my $media_info=$ob->simple();
 
 	my $logger_msg=Dumper $media_info;
-	Logger($config_options,"Media Info XML Object\n$logger_msg","DEBUG");
+	Logger($config_options,"Media Info XML Object\n[36m$logger_msg","DEBUG");
 
 	if (ref($media_info->{Mediainfo}->{File}->{track}) eq "ARRAY" )  {
 		$provider_hash->{DURATIONTEXT}				= $media_info->{Mediainfo}->{File}->{track}->[1]->{Duration};
@@ -1801,7 +1831,7 @@ sub GetMediaInfo {
 		}
 		else { $provider_hash->{RESOLUTION} = "" ; }
 
-		Logger($config_options,"Resolution has been determined to be ".$provider_hash->{RESOLUTION},"DEBUG");
+		Logger($config_options,"Resolution has been determined to be [36m".$provider_hash->{RESOLUTION},"DEBUG");
 	}
 }
 
@@ -1879,6 +1909,7 @@ Usage: Thumbscanner [options]
   -i  --interactive       for instances where multiple hits are returned, prompt the user to pick one
   -t  --tgmd              prefer the use of tgmd file if found
 	-n	--NFO               generate a .nfo file
+	-c	--CACHE             by default Thumbscanner caches all info it receives, use this to not use cached info for sheet generation
 
 Example:
   Thumbscanner -r -d INFO -o
@@ -1901,7 +1932,7 @@ sub ScanMovieDir {
  
   foreach my $name (@names){
     if ( -d $name && ($config_options->{RECURSE} == 1) ){                     # is this a directory?
-			Logger($config_options,"Entering Directory $name","DEBUG");
+			Logger($config_options,"Entering Directory [36m$name","INFO");
       ScanMovieDir($config_options,$name);
       next;
     }
@@ -1910,35 +1941,50 @@ sub ScanMovieDir {
 			my $thumbnail;
 			my %provider_hash;
 
+
+			my $db_filename=sprintf("%s/.%s.cache",&cwd,$name);
+			if ($config_options->{USECACHE} == 1) {
+				my $pag="$db_filename.pag";
+				my $dir="$db_filename.dir";
+				$config_options->{USECACHE}=( (-e $pag) && (-e $dir) ) ? 1 : 0;
+			}
+
+#my $dbFile = tie %provider_hash, 'MLDBM', $db_filename, O_CREAT|O_RDWR, 0640 or die $!;
+#$dbFile->Filter_Push('utf8');
+
 			$provider_hash{TITLEPATH}=&cwd;
 			$provider_hash{FULLMOVIEPATH}=&cwd."/$name";
 			$provider_hash{MOVIEFILENAME}=$name;
 			$provider_hash{MOVIEFILENAMEWITHOUTEXT}=$name;
 			$provider_hash{MOVIEFILENAMEWITHOUTEXT} =~ s/\.\w+$//; # remove the trailing suffix
 			Logger($config_options,"Processing $provider_hash{FULLMOVIEPATH} as a movie","DEBUG");
-			Logger($config_options,"Creating a moviesheet for $provider_hash{MOVIEFILENAME}","INFO");
+			Logger($config_options,"Creating a moviesheet for [36m$provider_hash{MOVIEFILENAME}","INFO");
 			
 			my $clean_name=clean_name($provider_hash{MOVIEFILENAME});
 			if ( ($config_options->{OVERWRITE}) || !( -e "$provider_hash{MOVIEFILENAMEWITHOUTEXT}.jpg"))  {
-				# if a tgmd file exists, use it.
-				if ( (-e "$provider_hash{FULLMOVIEPATH}.tgmd") && ($config_options->{PREFERTGMD} ) ) {
-					Logger($config_options,"found TGMD file, using it.","DEBUG");
-					$provider_hash{TGMD_FILE}="$provider_hash{FULLMOVIEPATH}.tgmd";
-					GetMediaDetails_tgmd($config_options,\%provider_hash);
-				}
-
-				my $tmdb_id=GetTmdbID($config_options,\%provider_hash);
-				unless (defined($tmdb_id)) {
-					Logger($config_options,"unable to find movie data for $provider_hash{MOVIEFILENAME}","CRIT");
-					next;
-				}
-
-				# get more detailed information using the Movie.getInfo call
-				GetMediaDetails_tmdb($config_options,$tmdb_id,\%provider_hash);
-				GetMediaDetails_imdb($config_options,\%provider_hash);
-				if ($config_options->{COLLECTOR} =~ /moviemeter/i ) {
-					Logger($config_options,"Using MOVIEMETER collector ","DEBUG");
-					GetMediaDetails_moviemeter($config_options,\%provider_hash);
+				if ($config_options->{USECACHE} == 0) {
+					Logger($config_options,"Not Using Cached Information","DEBUG");
+					# if a tgmd file exists, use it.
+					if ( (-e "$provider_hash{FULLMOVIEPATH}.tgmd") && ($config_options->{PREFERTGMD} ) ) {
+						Logger($config_options,"found TGMD file, using it.","DEBUG");
+						$provider_hash{TGMD_FILE}="$provider_hash{FULLMOVIEPATH}.tgmd";
+						GetMediaDetails_tgmd($config_options,\%provider_hash);
+					}
+					else {
+						my $tmdb_id=GetTmdbID($config_options,\%provider_hash);
+						unless (defined($tmdb_id)) {
+							Logger($config_options,"unable to find movie data for [36m$provider_hash{MOVIEFILENAME}","CRIT");
+							next;
+						}
+		
+						# get more detailed information using the Movie.getInfo call
+						GetMediaDetails_tmdb($config_options,$tmdb_id,\%provider_hash);
+						GetMediaDetails_imdb($config_options,\%provider_hash);
+						if ($config_options->{COLLECTOR} =~ /moviemeter/i ) {
+							Logger($config_options,"Using MOVIEMETER collector ","DEBUG");
+							GetMediaDetails_moviemeter($config_options,\%provider_hash);
+						}
+					}
 				}
 
 				# get the media_info hash
@@ -1962,13 +2008,13 @@ sub ScanMovieDir {
 
 				if ($config_options->{NFO} == 1) {
 					$provider_hash{NFOFILENAME}=sprintf("%s.nfo",$provider_hash{MOVIEFILENAMEWITHOUTEXT});
-					Logger($config_options,"Dumping NFO file to ".$provider_hash{MOVIEFILENAMEWITHOUTEXT},"DEBUG");
+					Logger($config_options,"Dumping NFO file to [36m".$provider_hash{MOVIEFILENAMEWITHOUTEXT},"DEBUG");
 					WriteNFO($config_options,\%provider_hash);
 				}
 
 				# if we used a tgmd, we need to clean up after ourselves.
 				if (defined ($provider_hash{TGMD_FILE} ) ) {
-					Logger($config_options,"Clean Up TGMD Temp directory ".$provider_hash{TGMD_TEMPDIR},"DEBUG");
+					Logger($config_options,"Clean Up TGMD Temp directory [36m".$provider_hash{TGMD_TEMPDIR},"DEBUG");
 					opendir(DIR, "$provider_hash{TGMD_TEMPDIR}") or die "Unable to open TGMD TEMPDIR  $provider_hash{TGMD_TEMPDIR}\n";
 					my @names=grep{ !/^\.+/ } readdir(DIR);
 					closedir(DIR);
@@ -1982,6 +2028,11 @@ sub ScanMovieDir {
 					$provider_hash{TGMD_FILE}=undef;
 				}
 
+				# cache all data for this movie.  makes it quicker to re-genenrate informations.
+				Logger($config_options,"Caching moviesheet data for [36m". $provider_hash{MOVIEFILENAME},"DEBUG");
+#untie (%provider_hash);
+
+
 			}
   	}
 	}
@@ -1994,11 +2045,11 @@ sub Main {
 
 	# confirm that the movie directory and template file exist
 	unless (-e $config_options->{TEMPLATE} && -f $config_options->{TEMPLATE} ) {
-		Logger($config_options,"Template file '$config_options->{TEMPLATE}' does not exist!!","CRIT");
+		Logger($config_options,"Template file [36m'$config_options->{TEMPLATE}' does not exist!!","CRIT");
 		exit -1;
 	}
 	unless (-e $config_options->{MOVIEPARENTFOLDER}) {
-		Logger($config_options,"Movie directory '$config_options->{MOVIEPARENTFOLDER}' does not exist!!","CRIT");
+		Logger($config_options,"Movie directory [36m'$config_options->{MOVIEPARENTFOLDER}' does not exist!!","CRIT");
 		exit -1;
 	}
 
@@ -2021,6 +2072,7 @@ my $tgmd=0;
 my $nfo=0;
 my $interactive=0;
 my $help=0;
+my $ignorecache=0;
 
 my $results=GetOptions ("debug=s"				=> \$debug,
 												"overwrite"			=> \$overwrite,
@@ -2029,6 +2081,7 @@ my $results=GetOptions ("debug=s"				=> \$debug,
 												"interactive"		=> \$interactive,
 												"tgmd"					=> \$tgmd,
 												"nfo"						=> \$nfo,
+												"cache"					=> \$ignorecache,
 												"recurse"				=> \$recurse);
 
 Usage if $help;
@@ -2042,7 +2095,14 @@ $config_options{INTERACTIVE}=$interactive;
 $config_options{PREFERTGMD}=$tgmd;
 $config_options{NFO}=$nfo;
 $config_options{VERSION}="v 0.7";
-$config_options{BUILD_DATE}="Thu Aug  5 2010";
+$config_options{BUILD_DATE}="Thu Aug  5 20:16:03 EDT 2010";
+
+if ($ignorecache == 1) {
+	$config_options{USECACHE}=0;
+}
+else {
+	$config_options{USECACHE}=1;
+}
 
 # read in the options in the config file
 open (FD, $config_options{CONF_FILE}) or die "Unable to open config file $config_options{CONF_FILE}\n";

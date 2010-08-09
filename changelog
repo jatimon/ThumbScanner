@@ -1,11 +1,11 @@
 v 0.7
 - added a fix for poorly formated URLs returned from themoviedb.org
 - fixed GetColor hex conversion routine on 64bit machines.
-- arbitrarily added 2 to the font size to workaround disparity with windows and linux
 - added the creation of .nfo files via the -n command line argument
 - added support to include .m2ts files and .iso files without mediainfo
 - fixed a bug in imdb scraper validation
 - added E_SCALE config option.  this is a value that will be added to all font size entries
+- fixed a bug in displaying the plot.  For some reason IMDB occasionally returns a link to the full_plot which if often blank, resulting in undef
 
 v 0.6
 - Implemented Glow

@@ -21,17 +21,6 @@
 - For text elements like title (non multi-line) attempt to center the font vertically so that lower case letters that hang beneath the line are still visible.
 - for multi-line text elements, cut of the text at the latest sentence end if the content goes beyond the full height of the box.  
 	There are only three ways to end a sentence: with a period (.), a question mark (?), or an exclamation point  (!).
-- bug fix
-
-	@dachouffe, looks like you have found a bit of a bug.
-
-	I lazily assumed that these tokens would be properly populated by the providers.
-
-	I will need to add some sanity checks to the detokenizing routines to ensure that the token being evaluated is not 'undef' and if it is, log an error and keep on truckin :)
-
-	I will have something out to fix this as my time permits.
-
-	thanks.
 
 -----
 NOTES

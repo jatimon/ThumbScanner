@@ -5,6 +5,7 @@ v 0.7
 - added the creation of .nfo files via the -n command line argument
 - added support to include .m2ts files and .iso files without mediainfo
 - fixed a bug in imdb scraper validation
+- added detokenizing of TITLEPATH
 
 v 0.6
 - Implemented Glow

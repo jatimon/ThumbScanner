@@ -15,9 +15,8 @@
 			Movie Information - Used by tvixie2playonhd to create gernes and to make rss files on the Playon!HD
 			Main Sheet - $M\$N$E_sheet - Main sheet for the Movie jukebox on the Playon!HD
 			Extra Sheet - Used in the browser screen of the Playon!HD
-- generate rss and tgmd files.
+- generate rss files.
 - GlassTable isn't quite right.  the opacity is a bit off
-- Add an option to 'tweak' the font size
 - For text elements like title (non multi-line) attempt to center the font vertically so that lower case letters that hang beneath the line are still visible.
 - for multi-line text elements, cut of the text at the latest sentence end if the content goes beyond the full height of the box.  
 - Would it be implemented in the near future support for templates for TV series? For example: "OmniGlass TV Sheet Small - Season Full".

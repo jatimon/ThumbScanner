@@ -2,14 +2,13 @@
 # imagemagick redering converter from thumbgens xml files
 
 $|=1;
-${'^ENCODING'} = "S";
 
+use open ':utf8';
+use utf8;
+use Encode;
 
+use Storable;
 use strict;
-use MLDBM;
-use SDBM_File;
-use DBM_Filter;
-use Fcntl;
 use Cwd;
 use Getopt::Long;
 use Image::Magick;
@@ -65,8 +64,6 @@ sub Logger {
       );
 
   open my $FD, ">> $config_options->{LOGFILE}" or die "unable to open $config_options->{LOGFILE}";
-	print $FD "$level:\t$message\n";
-	$message =~ s/[^[:ascii:]]+//g;
 	print $FD "$level:\t$message\n";
 	close $FD;
 
@@ -1456,7 +1453,7 @@ else {
 
 	Logger($config_options,$url,"DEBUG");
 	my $response = $ua->get($url);
-	my $xml_ob = new XML::Bare(text => $response->decoded_content );
+	my $xml_ob = new XML::Bare(text => decode_entities( $response->decoded_content ) );
 	my $xml_root=$xml_ob->simple();
 
 	if ( $xml_root->{OpenSearchDescription}->{'opensearch:totalResults'} > 1 ) {
@@ -1623,7 +1620,9 @@ sub GetMediaDetails_tmdb {
 
 	Logger($config_options,"http://api.themoviedb.org/2.1/Movie.getInfo/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$tmdb_id","DEBUG");
 	my $response = $ua->get("http://api.themoviedb.org/2.1/Movie.getInfo/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$tmdb_id");
-	my $xml_data=decode_entities($response->decoded_content);
+	my $xml_data=$response->decoded_content ;
+decode_entities($xml_data);
+utf8::encode($xml_data);
 	my $xml_ob = new XML::Bare(text => $xml_data );
 	my $movie_xml=$xml_ob->parse();
 
@@ -1678,8 +1677,11 @@ sub GetMediaDetails_tmdb {
 
 	$provider_hash->{IMDB_ID}=$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{imdb_id}->{value};
 
-	Logger($config_options,$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{overview}->{value},"DEBUG");
-	$provider_hash->{PLOT}= $movie_xml->{OpenSearchDescription}->{movies}->{movie}->{overview}->{value};
+	my $plot_clean=qq/$movie_xml->{OpenSearchDescription}->{movies}->{movie}->{overview}->{value}/;
+#decode_entities($plot_clean);
+#utf8::encode($plot_clean);
+  Logger($config_options, $plot_clean,"DEBUG");
+	$provider_hash->{PLOT}=$plot_clean;
 }
 
 sub GetMediaInfo {
@@ -1908,8 +1910,8 @@ Usage: Thumbscanner [options]
   -o  --overwrite         overwrite existing moviesheets and thumbnails
   -i  --interactive       for instances where multiple hits are returned, prompt the user to pick one
   -t  --tgmd              prefer the use of tgmd file if found
-	-n	--NFO               generate a .nfo file
-	-c	--CACHE             by default Thumbscanner caches all info it receives, use this to not use cached info for sheet generation
+  -n  --NFO               generate a .nfo file
+  -c  --cache             by default Thumbscanner caches all info it receives, use this to not use cached info for sheet generation
 
 Example:
   Thumbscanner -r -d INFO -o
@@ -1942,21 +1944,19 @@ sub ScanMovieDir {
 			my %provider_hash;
 
 
-			my $db_filename=sprintf("%s/.%s.cache",&cwd,$name);
-			if ($config_options->{USECACHE} == 1) {
-				my $pag="$db_filename.pag";
-				my $dir="$db_filename.dir";
-				$config_options->{USECACHE}=( (-e $pag) && (-e $dir) ) ? 1 : 0;
-			}
-
-#my $dbFile = tie %provider_hash, 'MLDBM', $db_filename, O_CREAT|O_RDWR, 0640 or die $!;
-#$dbFile->Filter_Push('utf8');
-
 			$provider_hash{TITLEPATH}=&cwd;
 			$provider_hash{FULLMOVIEPATH}=&cwd."/$name";
 			$provider_hash{MOVIEFILENAME}=$name;
 			$provider_hash{MOVIEFILENAMEWITHOUTEXT}=$name;
 			$provider_hash{MOVIEFILENAMEWITHOUTEXT} =~ s/\.\w+$//; # remove the trailing suffix
+			$provider_hash{MOVIECACHEFILE}=sprintf(".%s.cache",$provider_hash{MOVIEFILENAMEWITHOUTEXT});
+
+			if ($config_options->{USECACHE} == 1) {
+				print "USE CACHE\n";
+				$config_options->{USECACHE}=( -e $provider_hash{MOVIECACHEFILE} ) ? 1 : 0;
+				print $config_options->{USECACHE}."\n";
+			}
+
 			Logger($config_options,"Processing $provider_hash{FULLMOVIEPATH} as a movie","DEBUG");
 			Logger($config_options,"Creating a moviesheet for [36m$provider_hash{MOVIEFILENAME}","INFO");
 			
@@ -1985,6 +1985,13 @@ sub ScanMovieDir {
 							GetMediaDetails_moviemeter($config_options,\%provider_hash);
 						}
 					}
+				}
+				else {
+					# load up the cache
+					print Dumper \%provider_hash;
+					Logger($config_options,"Loading up cache file [36m$provider_hash{MOVIECACHEFILE}","INFO");
+					%provider_hash = %{ retrieve $provider_hash{MOVIECACHEFILE} };
+					print Dumper \%provider_hash;
 				}
 
 				# get the media_info hash
@@ -2030,7 +2037,9 @@ sub ScanMovieDir {
 
 				# cache all data for this movie.  makes it quicker to re-genenrate informations.
 				Logger($config_options,"Caching moviesheet data for [36m". $provider_hash{MOVIEFILENAME},"DEBUG");
-#untie (%provider_hash);
+
+				store \%provider_hash, $provider_hash{MOVIECACHEFILE};
+
 
 
 			}

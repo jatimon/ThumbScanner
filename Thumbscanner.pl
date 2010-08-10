@@ -5,8 +5,6 @@ $|=1;
 
 use open ':utf8';
 use utf8;
-use Encode;
-
 use Storable;
 use strict;
 use Cwd;
@@ -1938,7 +1936,7 @@ sub ScanMovieDir {
       ScanMovieDir($config_options,$name);
       next;
     }
-		elsif ( -e $name && grep{ /.*\.avi$/i || /.*\.m2ts$/i || /.*\.iso$/i || /.*\.mkv$/i || /.*\.mov$/i || /.*\.mpg$/i || /.*\.mpeg$/i || /.*\.wmv$/i || /.*\.mp4$/i || /.*\.qt$/i || /.*\.rm$/i } $name) {
+		elsif ( -e $name && grep{ /.*\.avi$/i || /.*\.m2ts$/i || /.*\.iso$/i || /.*\.m4v/i || /.*\.mkv$/i || /.*\.mov$/i || /.*\.mpg$/i || /.*\.mpeg$/i || /.*\.wmv$/i || /.*\.mp4$/i || /.*\.qt$/i || /.*\.rm$/i } $name) {
 			my $moviesheet;
 			my $thumbnail;
 			my %provider_hash;
@@ -2102,7 +2100,7 @@ $config_options{INTERACTIVE}=$interactive;
 $config_options{PREFERTGMD}=$tgmd;
 $config_options{NFO}=$nfo;
 $config_options{VERSION}="v 0.7";
-$config_options{BUILD_DATE}="Tue Aug 10 10:15:43 EDT 2010";
+$config_options{BUILD_DATE}="Tue Aug 10 10:17:10 EDT 2010";
 
 if ($ignorecache == 1) {
 	$config_options{USECACHE}=0;

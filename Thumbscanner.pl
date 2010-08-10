@@ -1950,9 +1950,7 @@ sub ScanMovieDir {
 			$provider_hash{MOVIECACHEFILE}=sprintf(".%s.cache",$provider_hash{MOVIEFILENAMEWITHOUTEXT});
 
 			if ($config_options->{USECACHE} == 1) {
-				print "USE CACHE\n";
 				$config_options->{USECACHE}=( -e $provider_hash{MOVIECACHEFILE} ) ? 1 : 0;
-				print $config_options->{USECACHE}."\n";
 			}
 
 			Logger($config_options,"Processing $provider_hash{FULLMOVIEPATH} as a movie","DEBUG");
@@ -2100,7 +2098,7 @@ $config_options{INTERACTIVE}=$interactive;
 $config_options{PREFERTGMD}=$tgmd;
 $config_options{NFO}=$nfo;
 $config_options{VERSION}="v 0.7";
-$config_options{BUILD_DATE}="Tue Aug 10 10:17:10 EDT 2010";
+$config_options{BUILD_DATE}="Tue Aug 10 15:01:52 EDT 2010";
 
 if ($ignorecache == 1) {
 	$config_options{USECACHE}=0;

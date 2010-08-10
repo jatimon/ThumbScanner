@@ -1619,8 +1619,8 @@ sub GetMediaDetails_tmdb {
 	Logger($config_options,"http://api.themoviedb.org/2.1/Movie.getInfo/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$tmdb_id","DEBUG");
 	my $response = $ua->get("http://api.themoviedb.org/2.1/Movie.getInfo/en/xml/79302e9ad1a5d71e8d62a82334cdbda4/$tmdb_id");
 	my $xml_data=$response->decoded_content ;
-decode_entities($xml_data);
-utf8::encode($xml_data);
+#decode_entities($xml_data);
+#utf8::encode($xml_data);
 	my $xml_ob = new XML::Bare(text => $xml_data );
 	my $movie_xml=$xml_ob->parse();
 

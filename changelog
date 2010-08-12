@@ -4,8 +4,11 @@ v 0.7
 - added the creation of .nfo files via the -n command line argument
 - added support to include .m2ts files and .iso files without mediainfo
 - fixed a bug in imdb scraper validation
+- added detokenizing of TITLEPATH
 - added E_SCALE config option.  this is a value that will be added to all font size entries
 - fixed a bug in displaying the plot.  For some reason IMDB occasionally returns a link to the full_plot which if often blank, resulting in undef
+- added automatic caching of movie information.  -c to disable using the cache
+- hacked unicode decoding (transliteration) 
 
 v 0.6
 - Implemented Glow

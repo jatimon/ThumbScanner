@@ -4,11 +4,10 @@
 $|=1;
 
 use Text::Unidecode;
-
-use strict;
 use open ':utf8';
 use utf8;
 use Storable;
+use strict;
 use Cwd;
 use Getopt::Long;
 use Image::Magick;

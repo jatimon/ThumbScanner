@@ -1156,17 +1156,17 @@ sub DeTokenize {
     
   if ( $$string =~ /\%FANART1\%/ ) {
     $$string =~ s/\%FANART1\%/$provider_hash->{FANART1}/;
-		Logger($config_options,"Grabbing FANART1 $provider_hash->{FANART1}","DEBUG");
+		Logger($config_options,"Grabbing FANART1 [36m$provider_hash->{FANART1}","DEBUG");
 	}
 
   if ( $$string =~ /\%FANART2\%/ ) {
     $$string =~ s/\%FANART2\%/$provider_hash->{FANART2}/;
-		Logger($config_options,"Grabbing FANART2 $provider_hash->{FANART2}","DEBUG");
+		Logger($config_options,"Grabbing FANART2 [36m$provider_hash->{FANART2}","DEBUG");
 	}
 
   if ( $$string =~ /\%FANART3\%/ ) {
     $$string =~ s/\%FANART3\%/$provider_hash->{FANART3}/;
-		Logger($config_options,"Grabbing FANART3 $provider_hash->{FANART3}","DEBUG");
+		Logger($config_options,"Grabbing FANART3 [36m$provider_hash->{FANART3}","DEBUG");
 	}
     
   if ( $$string =~ /\%BACKGROUND\%/ ) {
@@ -1959,7 +1959,8 @@ sub ScanMovieDir {
 			
 			my $clean_name=clean_name($provider_hash{MOVIEFILENAME});
 			if ( ($config_options->{OVERWRITE}) || !( -e "$provider_hash{MOVIEFILENAMEWITHOUTEXT}.jpg"))  {
-				if ($config_options->{USECACHE} == 0) {
+#if ($config_options->{USECACHE} == 0) {
+				unless ( -e $provider_hash{MOVIECACHEFILE}) {
 					Logger($config_options,"Not Using Cached Information","DEBUG");
 					# if a tgmd file exists, use it.
 					if ( (-e "$provider_hash{FULLMOVIEPATH}.tgmd") && ($config_options->{PREFERTGMD} ) ) {
@@ -2099,7 +2100,7 @@ $config_options{INTERACTIVE}=$interactive;
 $config_options{PREFERTGMD}=$tgmd;
 $config_options{NFO}=$nfo;
 $config_options{VERSION}="v 0.7";
-$config_options{BUILD_DATE}="Tue Aug 10 15:01:52 EDT 2010";
+$config_options{BUILD_DATE}="Thu Aug 12 06:55:35 EDT 2010";
 
 if ($ignorecache == 1) {
 	$config_options{USECACHE}=0;

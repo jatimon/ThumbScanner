@@ -2100,7 +2100,7 @@ $config_options{INTERACTIVE}=$interactive;
 $config_options{PREFERTGMD}=$tgmd;
 $config_options{NFO}=$nfo;
 $config_options{VERSION}="v 0.7";
-$config_options{BUILD_DATE}="Thu Aug 12 06:55:35 EDT 2010";
+$config_options{BUILD_DATE}="Mon Aug 30 10:47:31 EDT 2010";
 
 if ($ignorecache == 1) {
 	$config_options{USECACHE}=0;
